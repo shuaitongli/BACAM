@@ -1,0 +1,13 @@
+{
+  "name": "wtsa_reference",
+  "purpose": "plotting_only",
+  "references": {
+    "search": {"expert": 0.2434},
+    "tool": {"expert": 0.3000},
+    "alfworld": {
+      "expert_iid": 0.9857,
+      "expert_ood": 0.9104
+    },
+    "webshop": {"expert": 0.8841}
+  }
+}

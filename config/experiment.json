@@ -1,0 +1,112 @@
+{
+  "experiment": "BACAM",
+  "method_version": "behavior_aware_raw_kl_conflict_budget",
+  "seed": 20260816,
+  "stages": [
+    {
+      "name": "t2_tool",
+      "old_model": "${BACAM_MODEL_ROOT}/GiGPO-Qwen2.5-7B-Instruct-WebShop",
+      "new_expert": "${BACAM_MODEL_ROOT}/Qwen2.5-7B-Instruct-ToolRL-grpo-cold",
+      "old_domains": ["webshop"],
+      "new_domains": ["tool"],
+      "optimizer_steps": {"r0": 20, "r1": 30, "r2": 50},
+      "total_optimizer_steps": 100,
+      "round_export_dirs": [
+        "${BACAM_MERGE_ROOT}/bacam-wtsa-t2-r0",
+        "${BACAM_MERGE_ROOT}/bacam-wtsa-t2-r1",
+        "${BACAM_MERGE_ROOT}/bacam-wtsa-t2-r2"
+      ],
+      "final_export_dir": "${BACAM_MERGE_ROOT}/bacam-wtsa-t2-final"
+    },
+    {
+      "name": "t3_search",
+      "old_model": "${BACAM_MERGE_ROOT}/bacam-wtsa-t2-final",
+      "new_expert": "${BACAM_MODEL_ROOT}/ReSearch-Qwen-7B-Instruct",
+      "old_domains": ["webshop", "tool"],
+      "new_domains": ["search"],
+      "optimizer_steps": {"r0": 20, "r1": 30, "r2": 50},
+      "total_optimizer_steps": 100,
+      "round_export_dirs": [
+        "${BACAM_MERGE_ROOT}/bacam-wtsa-t3-r0",
+        "${BACAM_MERGE_ROOT}/bacam-wtsa-t3-r1",
+        "${BACAM_MERGE_ROOT}/bacam-wtsa-t3-r2"
+      ],
+      "final_export_dir": "${BACAM_MERGE_ROOT}/bacam-wtsa-t3-final"
+    },
+    {
+      "name": "t4_alfworld",
+      "old_model": "${BACAM_MERGE_ROOT}/bacam-wtsa-t3-final",
+      "new_expert": "${BACAM_MODEL_ROOT}/GiGPO-Qwen2.5-7B-Instruct-ALFWorld",
+      "old_domains": ["webshop", "tool", "search"],
+      "new_domains": ["alfworld"],
+      "optimizer_steps": {"r0": 20, "r1": 30, "r2": 50},
+      "total_optimizer_steps": 100,
+      "round_export_dirs": [
+        "${BACAM_MERGE_ROOT}/bacam-wtsa-t4-r0",
+        "${BACAM_MERGE_ROOT}/bacam-wtsa-t4-r1",
+        "${BACAM_MERGE_ROOT}/bacam-wtsa-t4-r2"
+      ],
+      "final_export_dir": "${BACAM_MERGE_ROOT}/bacam-wtsa-t4-final"
+    }
+  ],
+  "data": {
+    "states_per_stream": 256,
+    "rollout_episodes": {
+      "tool": 50,
+      "search": 120,
+      "alfworld": 60,
+      "webshop": 50
+    },
+    "max_states_per_trajectory": 32,
+    "max_states_per_trajectory_by_domain": {"alfworld": 50, "webshop": 15},
+    "max_sequence_tokens": 32768,
+    "max_response_tokens": 4096
+  },
+  "distillation": {
+    "distribution_format": "topk_plus_other_v1",
+    "teacher_top_k": 32,
+    "temperature": 1.0
+  },
+  "optimization": {
+    "rounds": ["r0", "r1", "r2"],
+    "states_per_optimizer_step_per_stream": 16,
+    "gate_lr": 0.02,
+    "gate_lr_schedule": "cosine",
+    "gate_range": [0.0, 1.0],
+    "total_optimizer_steps": 300,
+    "gate_state_device": "cpu"
+  },
+  "endpoint": {"trajectories_per_source": 24},
+  "trust_region": {
+    "raw_kl_budget": 0.005,
+    "dual_init": 0.0,
+    "dual_lr": 1.0,
+    "dual_max": 1.0
+  },
+  "stability_plasticity": {
+    "enabled": true,
+    "probe_trajectories_per_stream": 24,
+    "probe_step": "one_new_only_gate_step"
+  },
+  "success": {
+    "t2": {"retention": 0.90, "absorption": 0.90},
+    "t3": {"retention": 0.90, "absorption": 0.90},
+    "t4": {"retention": 0.90, "absorption": 0.90}
+  },
+  "execution": {
+    "allowed_physical_gpus": [3, 4, 5, 6],
+    "ports": {
+      "retriever": 8100,
+      "tool": 19300,
+      "search_rollout": 18300,
+      "search_eval": 18400,
+      "alfworld_rollout": 18500,
+      "alfworld_eval": 18600,
+      "webshop_rollout": 18700,
+      "webshop_eval": 18800,
+      "master": 29500
+    },
+    "python": "${BACAM_PYTHON}",
+    "torchrun": "${BACAM_TORCHRUN}"
+  }
+}

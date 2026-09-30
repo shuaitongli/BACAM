@@ -1,0 +1,10 @@
+# Core BACAM dependencies observed in the training environment.
+# Install CUDA-enabled PyTorch first; install FlashAttention separately (README).
+torch==2.8.0
+transformers==4.57.6
+accelerate==1.13.0
+safetensors==0.7.0
+tokenizers==0.22.2
+numpy==2.2.6
+tqdm==4.67.3
+matplotlib==3.10.9
