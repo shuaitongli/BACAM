@@ -85,7 +85,17 @@ while [ "$round" -lt "$MAX_ROUNDS" ]; do
 done
 
 pkill -f "sglang.launch_server.*--port $SGL_PORT" 2>/dev/null || true
-find "$SAVE_DIR" -mindepth 2 -maxdepth 2 -name intermediate_data.json | grep -q . || {
-  say "没有 intermediate_data.json"; exit 1; }
+[ "${count:-0}" -eq "$EVAL_N" ] || {
+  say "$TAG 评测未完成：${count:-0}/$EVAL_N，保留结果供下次继续"; exit 1; }
+if ! "$BACAM_PYTHON" - "$SAVE_DIR" "$EVAL_N" <<'PY'
+import json, sys
+from pathlib import Path
+paths = sorted(Path(sys.argv[1]).glob("*/intermediate_data.json"),
+               key=lambda path: path.stat().st_mtime)
+raise SystemExit(0 if paths and len(json.loads(paths[-1].read_text())) == int(sys.argv[2]) else 1)
+PY
+then
+  say "intermediate_data.json 缺失或数量不完整，未写入完成标记"; exit 1
+fi
 touch "$DONE/search-$MID"
 say "$TAG 完成，结果在 $SAVE_DIR"

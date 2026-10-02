@@ -31,10 +31,11 @@ command -v "$ALFWORLD_PYTHON" >/dev/null 2>&1 || { echo "missing ALFWorld Python
 [ -s "$MODEL/model.safetensors.index.json" ] || { echo "incomplete model: $MODEL" >&2; exit 1; }
 [ -s "$SPLIT" ] || { echo "missing split: $SPLIT" >&2; exit 1; }
 
-if [ -s "$SUMMARY" ] && "$ALFWORLD_PYTHON" - "$SUMMARY" "$STAGE" "$LABEL" "$MODEL" <<'PY'
+if [ -s "$SUMMARY" ] && "$ALFWORLD_PYTHON" - "$SUMMARY" "$STAGE" "$LABEL" "$MODEL" "$EXPERIMENT/configs/experiment.json" <<'PY'
 import json, sys
 from pathlib import Path
 summary = json.load(open(sys.argv[1]))
+episodes = int(json.load(open(sys.argv[5]))["data"]["rollout_episodes"]["alfworld"])
 expected = {
     "stage": sys.argv[2],
     "round": sys.argv[3],
@@ -42,7 +43,7 @@ expected = {
 }
 matches = all(summary.get(key) == value for key, value in expected.items())
 raise SystemExit(
-    0 if matches and summary.get("complete") and summary.get("episodes") == 30 else 1
+    0 if matches and summary.get("complete") and summary.get("episodes") == episodes else 1
 )
 PY
 then
