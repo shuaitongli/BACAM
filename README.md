@@ -1,63 +1,101 @@
 # BACAM
 
-Official implementation of **BACAM: Behavior-Aware Continual Agent Merging For Multi-turn Interaction**.
+Official implementation of **BACAM: Behavior-Aware Continual Agent Merging for Multi-Turn Interaction**.
 
-BACAM merges specialized language-model agents into a single model. It learns
-parameter-wise interpolation gates to acquire a new agent's capabilities while
-preserving the behavior of agents merged earlier.
+[Method](#method) · [Results](#results) · [Installation](#installation) · [Training and evaluation](#training-and-evaluation)
 
-This repository provides the merging algorithm, on-policy rollout adapters,
-teacher-distribution caching, training pipelines, evaluation, and diagnostic plots.
-The default merge order is WebShop, Tool, Search, then ALFWorld (WTSA).
+BACAM sequentially merges specialized language-model agents into a single dense
+model, acquiring each incoming capability while preserving previously integrated
+behaviors. It learns parameter-wise interpolation gates on the merged candidate's
+own interaction trajectories, combining task-level behavioral constraints with
+tensor-level conflict-aware update budgets. The gates are folded into the final
+weights, adding no inference-time parameters or computation.
 
-WebShop performs shopping tasks, Tool calls functions, Search answers questions
-using retrieved documents, and ALFWorld interacts with a text-based household
-environment. Run the commands below from the BACAM directory. Basic Linux shell
-and Python environment management are assumed.
+We merge four Qwen2.5-7B-Instruct-based experts for **WebShop, Tool, Search, and
+ALFWorld**. In the default order (WTSA), BACAM achieves **62.82% average success
+rate**, exceeding the strongest evaluated merging baseline by **21.69 percentage
+points**.
 
-## Terms used in this guide
-
-- Expert: a model specialized in one agent task. Student: the model being merged.
-- Gate: a learned value that controls the contribution of the old and new weights.
-- Rollout or trajectory: one complete interaction with an environment. A state
-  records one model input and response within that interaction.
-- Teacher cache: saved teacher probabilities for the student's generated responses,
-  reused during training. The teacher does not generate replacement trajectories.
-- KL: a measure of the difference between model output probabilities. Plasticity
-  means acquiring a new capability; stability means retaining previous capabilities.
-- Conflict budget: a coefficient that reduces updates harmful to previous tasks.
-- Held-out data: examples reserved for evaluation and not used for training.
+The repository includes merging, agent rollouts, teacher caching, evaluation, and
+gate/budget analysis. See [experiment results](docs/RESULTS.md) for the paper's
+comparison tables, ablations, and stage-wise scores.
 
 ## Method
 
-- Behavior-aware distillation balances critical action regions and other response
-  tokens. The new agent is supervised by its expert; previous agents are supervised
-  by the previously merged model.
-- Old-task KL drift constraints adapt a separate stability multiplier for each
-  previous agent.
-- Tensor-wise gradient conflict budgets limit gate updates toward the new expert
-  when those updates conflict with previous agents.
+![Overview of BACAM: candidate-generated trajectories, task-level behavioral control, and tensor-level conflict budgets.](assets/figures/overview.png)
 
-For each model parameter, the merged weight is
-`theta = (1 - g) * theta_old + g * theta_new`, with `g` constrained to `[0, 1]`.
-Plasticity uses forward KL and stability uses reverse KL. KL is computed on the
-teacher's top-32 tokens plus the remaining probability mass. Gate gradients use
-global RMS normalization; the conflict budget is shared within each tensor, not
-the interpolation gate itself.
+[Vector figure (PDF)](assets/figures/overview.pdf)
 
-## Setup
+BACAM combines three components:
+
+1. **New-task Plasticity Control (NPC).** Forward KL to the incoming expert guides
+   capability acquisition on candidate-generated histories, with explicit weighting
+   of behavior-critical response regions.
+2. **Old-task Stability Control (OSC).** Reverse KL to the previous merged model
+   constrains drift on earlier tasks; a separate adaptive multiplier enforces each
+   task's stability budget.
+3. **Conflict-Aware Plasticity Budgeting (CAPB).** Local gradient probes estimate
+   tensor-level conflicts and sensitivity, restricting gate updates toward the new
+   expert where they threaten earlier capabilities.
+
+The two source models remain frozen. Only the parameter-wise gate is optimized:
+
+```text
+theta_merged = theta_old + g * (theta_new - theta_old),  g in [0, 1]
+```
+
+Earlier experts need not be retained. Their task inputs and environments remain
+available for interaction, while the previous merged model provides stability
+supervision. All experts must share the same architecture and tokenizer.
+
+## Results
+
+Final success rates (%) after merging four experts. Continual methods use WTSA;
+batch methods merge the same experts. Avg is the mean of the five task columns,
+counting ALFWorld IID and OOD separately.
+
+| Method | WebShop | Tool | Search | ALFWorld IID | ALFWorld OOD | Avg |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Weight Average | 4.80 | 0.00 | 21.76 | 35.00 | 37.31 | 19.78 |
+| Task Arithmetic | 32.00 | 2.00 | 20.82 | 66.43 | 58.21 | 35.89 |
+| TIES-Merging | 38.40 | 0.00 | 15.17 | 53.57 | 56.72 | 32.77 |
+| TSV-Merge | 39.40 | 1.00 | 23.10 | 68.57 | 66.42 | 39.70 |
+| WUDI-Merging | 38.20 | 0.00 | 25.14 | 72.14 | 70.15 | 41.13 |
+| AdaMerging | 16.80 | 1.00 | 15.27 | 62.86 | 59.70 | 31.13 |
+| RAM++ | 37.20 | 1.00 | 20.33 | 61.43 | 50.00 | 33.99 |
+| OPCM | 22.60 | 1.00 | 21.52 | 46.43 | 41.79 | 26.67 |
+| NUFILT | 10.00 | 1.00 | 20.53 | 36.43 | 32.84 | 20.16 |
+| **BACAM** | **77.20** | **38.00** | **23.75** | **88.57** | **86.57** | **62.82** |
+
+This is a selection of the evaluated baselines; the [full comparison and ablations](docs/RESULTS.md)
+include all methods. Tool uses BFCL `multi_turn_base`; Search uses MuSiQue.
+
+### Performance across merging stages
+
+![Success rates after each integration under WTSA, ASTW, TWAS, and SAWT.](assets/figures/merging_stages.png)
+
+W = WebShop, T = Tool, S = Search, A = ALFWorld. Cell values are success rates (%);
+shading indicates performance relative to the corresponding expert. A dash marks
+a task whose expert has not yet been integrated. Order affects acquisition and
+retention: final average success rates range from 56.02% to 62.82%.
+
+[Stage-wise scores and tensor diagnostics](docs/RESULTS.md#performance-across-merging-stages)
+· [Vector figure (PDF)](assets/figures/merging_stages.pdf)
+
+## Installation
 
 Use Linux with an NVIDIA GPU, a compatible driver, and a CUDA-enabled PyTorch
 installation. The training pipeline uses four GPUs, FSDP, BF16, and FlashAttention.
 The core Python dependencies are pinned in `requirements.txt`.
-FSDP distributes model training across GPUs; BF16 is a reduced-precision number
-format; FlashAttention is an optimized attention implementation. Installing the
-core dependencies does not install the four agent environments.
-
-From the repository root:
+Clone the repository and install the core dependencies below. Install the agent
+environments from their respective repositories. After cloning, run subsequent
+commands from the BACAM directory.
 
 ```bash
-conda create -n bacam python -y
+git clone https://github.com/shuaitongli/BACAM.git
+cd BACAM
+
+conda create -n bacam python=3.12 -y
 conda activate bacam
 python -m pip install -r requirements.txt
 python -m pip install packaging ninja psutil setuptools
@@ -201,7 +239,7 @@ analysis/     Training curves, capability plots, tensor gate/budget summaries
 scripts/      Run entry points, merge pipelines, rollout launchers
 config/       Training, paths, GPU and port configuration
 baseline/     Expert reference scores
-docs/         Path configuration and data formats
+docs/         Resource configuration, data formats, and paper results
 ```
 
 The main algorithm files are `core/gate_ops.py`, `core/loss.py`, and `core/train.py`.
@@ -209,12 +247,20 @@ The main algorithm files are `core/gate_ops.py`, `core/loss.py`, and `core/train
 `core/build_states.py` builds training and budget-probe inputs. The full workflow
 starts at `scripts/run_all.sh`. See [PATHS.md](docs/PATHS.md) for resource settings.
 
-Weights, datasets, generated trajectories, caches, checkpoints, results, and logs
-are not included in this repository. State construction, teacher caching, budget
-calibration, loss/backward computation, gate updates, checkpoint restoration, and
-model save/reload have been checked together with a temporary small CPU model.
-Real agent rollouts and multi-GPU training have not been verified from a fresh
+Model weights, datasets, generated trajectories, caches, checkpoints, and execution
+logs are not bundled. The core pipeline has been checked with a small CPU model;
+full agent rollouts and multi-GPU training have not been validated from a fresh
 installation.
+
+## Acknowledgements
+
+BACAM uses experts and interaction environments from
+[ReSearch](https://github.com/Agent-RL/ReCall/tree/re-search),
+[ToolRL](https://github.com/qiancheng0/ToolRL),
+[GiGPO / verl-agent](https://github.com/langfengQ/verl-agent),
+[BFCL](https://github.com/ShishirPatil/gorilla/tree/main/berkeley-function-call-leaderboard),
+[ALFWorld](https://github.com/alfworld/alfworld), and
+[WebShop](https://github.com/princeton-nlp/WebShop).
 
 ## License
 
