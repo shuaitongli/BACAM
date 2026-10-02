@@ -109,29 +109,23 @@ cd BACAM
 conda create -n bacam python=3.12 -y
 conda activate bacam
 python -m pip install -r requirements.txt
-python -m pip install -e . --no-deps
 python -m pip install packaging ninja psutil setuptools
 python -m pip install flash-attn --no-build-isolation
-
-export BACAM_PYTHON="$(command -v python)"
-export BACAM_TORCHRUN="$(command -v torchrun)"
 ```
 
 Building [FlashAttention](https://github.com/Dao-AILab/flash-attention#installation-and-features)
 requires a compatible CUDA toolkit with `nvcc` and a C++ compiler. Agent-specific
 environment setup is provided by the external repositories listed below.
 
-Configure local model, dataset, and external repository paths:
+The default locations are `models/` for expert weights, `datasets/` for datasets,
+and `third_party/` for external repositories. GPU IDs and service ports are in
+`configs/experiment.json`. The launchers use the active environment's Python
+and commands on PATH by default; no editable package installation or local
+`paths.env` file is required.
 
-```bash
-cp configs/paths.env.example configs/paths.env
-# Edit configs/paths.env for your installation, then load it.
-source configs/paths.env
-python -m bacam.paths
-```
-
-GPU IDs and service ports are configured in `configs/experiment.json` and can be
-overridden through environment variables. See [PATHS.md](docs/PATHS.md).
+If resources are stored elsewhere or agents use separate environments, configure
+their paths and executables as described in [PATHS.md](docs/PATHS.md) before
+running. The optional settings file is only a convenience for these overrides.
 
 ## Expert models
 
@@ -147,17 +141,14 @@ and tokenizer files. The directory names below match the experiment configuratio
 | ALFWorld | [langfeng01/GiGPO-Qwen2.5-7B-Instruct-ALFWorld](https://huggingface.co/langfeng01/GiGPO-Qwen2.5-7B-Instruct-ALFWorld) |
 
 ```bash
-source scripts/lib/paths.sh
-export HF_ENDPOINT=https://huggingface.co
-
 hf download langfeng01/GiGPO-Qwen2.5-7B-Instruct-WebShop \
-  --local-dir "$BACAM_MODEL_ROOT/GiGPO-Qwen2.5-7B-Instruct-WebShop"
+  --local-dir models/GiGPO-Qwen2.5-7B-Instruct-WebShop
 hf download emrecanacikgoz/Qwen2.5-7B-Instruct-ToolRL-grpo-cold \
-  --local-dir "$BACAM_MODEL_ROOT/Qwen2.5-7B-Instruct-ToolRL-grpo-cold"
+  --local-dir models/Qwen2.5-7B-Instruct-ToolRL-grpo-cold
 hf download agentrl/ReSearch-Qwen-7B-Instruct \
-  --local-dir "$BACAM_MODEL_ROOT/ReSearch-Qwen-7B-Instruct"
+  --local-dir models/ReSearch-Qwen-7B-Instruct
 hf download langfeng01/GiGPO-Qwen2.5-7B-Instruct-ALFWorld \
-  --local-dir "$BACAM_MODEL_ROOT/GiGPO-Qwen2.5-7B-Instruct-ALFWorld"
+  --local-dir models/GiGPO-Qwen2.5-7B-Instruct-ALFWorld
 ```
 
 See the [Hugging Face CLI guide](https://huggingface.co/docs/huggingface_hub/guides/cli)
@@ -175,7 +166,9 @@ datasets or the retrieval corpus/index.
 | WebShop | [verl-agent / GiGPO](https://github.com/langfengQ/verl-agent), [WebShop](https://github.com/princeton-nlp/WebShop) |
 
 Install each external agent and its environment according to its original
-repository's README, then set the checkout locations through `configs/paths.env`.
+repository's README. Place the checkouts at `third_party/ReSearch`,
+`third_party/bfcl-toolrl`, and `third_party/verl-agent`, or override their locations
+as described in [PATHS.md](docs/PATHS.md).
 These repositories are not bundled here. The adapters require
 the ReSearch launch/evaluation interfaces and BFCL's RLLA handler; some environment
 adapters check external source-file hashes. An arbitrary upstream checkout may
@@ -215,13 +208,12 @@ Training manifests and teacher caches are generated automatically.
 Before running, make sure all four expert model directories exist, the external
 agent environments are installed, all four dataset split files have been created,
 and the Search retrieval service and WebShop search index have been configured.
-The GPU IDs in `configs/paths.env` must refer to four available physical GPUs;
+The GPU IDs in `configs/experiment.json` must refer to four available physical GPUs;
 the provided default IDs may not match your machine.
 
 After configuring dependencies, model paths, datasets, splits, GPUs, and ports:
 
 ```bash
-source configs/paths.env
 bash scripts/services/start_retriever.sh
 bash scripts/run_all.sh
 ```
@@ -229,7 +221,6 @@ bash scripts/run_all.sh
 To continue an interrupted run with its existing outputs:
 
 ```bash
-source configs/paths.env
 bash scripts/run_all.sh --resume
 ```
 
