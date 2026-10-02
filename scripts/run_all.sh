@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/scripts/paths.sh" || exit 1
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/paths.sh" || exit 1
 # Run WTSA stages in order; each pipeline owns its checkpoints.
 set -euo pipefail
 
@@ -10,7 +10,7 @@ if [[ "$#" -ne 0 ]]; then
   exit 2
 fi
 
-EXPERIMENT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+EXPERIMENT="$BACAM_ROOT"
 PY="$BACAM_PYTHON"
 LOG="$EXPERIMENT/logs/run_all_progress.log"
 cd "$EXPERIMENT"
@@ -41,6 +41,6 @@ run_stage t2 scripts/pipelines/merge_tool.sh
 run_stage t3 scripts/pipelines/merge_search.sh
 run_stage t4 scripts/pipelines/merge_alfworld.sh
 progress "capability trends plotting"
-"$PY" analysis/plot_capability_trends.py
+"$PY" -m bacam.analysis.plot_capability_trends
 progress "capability trends plotting complete"
 progress "WTSA ALL PIPELINES COMPLETE"

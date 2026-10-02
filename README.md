@@ -98,6 +98,7 @@ cd BACAM
 conda create -n bacam python=3.12 -y
 conda activate bacam
 python -m pip install -r requirements.txt
+python -m pip install -e . --no-deps
 python -m pip install packaging ninja psutil setuptools
 python -m pip install flash-attn --no-build-isolation
 
@@ -112,13 +113,13 @@ environment setup is provided by the external repositories listed below.
 Configure local model, dataset, and external repository paths:
 
 ```bash
-cp config/paths.env.example config/paths.env
-# Edit config/paths.env for your installation, then load it.
-source config/paths.env
-python core/paths.py
+cp configs/paths.env.example configs/paths.env
+# Edit configs/paths.env for your installation, then load it.
+source configs/paths.env
+python -m bacam.paths
 ```
 
-GPU IDs and service ports are configured in `config/experiment.json` and can be
+GPU IDs and service ports are configured in `configs/experiment.json` and can be
 overridden through environment variables. See [PATHS.md](docs/PATHS.md).
 
 ## Expert models
@@ -135,7 +136,7 @@ and tokenizer files. The directory names below match the experiment configuratio
 | ALFWorld | [langfeng01/GiGPO-Qwen2.5-7B-Instruct-ALFWorld](https://huggingface.co/langfeng01/GiGPO-Qwen2.5-7B-Instruct-ALFWorld) |
 
 ```bash
-source scripts/paths.sh
+source scripts/lib/paths.sh
 export HF_ENDPOINT=https://huggingface.co
 
 hf download langfeng01/GiGPO-Qwen2.5-7B-Instruct-WebShop \
@@ -163,7 +164,7 @@ datasets or the retrieval corpus/index.
 | WebShop | [verl-agent / GiGPO](https://github.com/langfengQ/verl-agent), [WebShop](https://github.com/princeton-nlp/WebShop) |
 
 Install each external agent and its environment according to its original
-repository's README, then set the checkout locations through `config/paths.env`.
+repository's README, then set the checkout locations through `configs/paths.env`.
 These repositories are not bundled here. The adapters require
 the ReSearch launch/evaluation interfaces and BFCL's RLLA handler; some environment
 adapters check external source-file hashes. An arbitrary upstream checkout may
@@ -188,7 +189,8 @@ Search additionally needs the Wikipedia corpus and retrieval index described in
 The default Search question file is `datasets/flashrag_eval/musique/dev.jsonl`.
 WebShop expects `items_shuffle_1000.json`, `items_ins_v2_1000.json`, and
 `items_human_ins.json` under `datasets/webshop/`; build its index with
-`rollout/build_webshop_index.py` in the WebShop environment. Dataset locations can
+`python -m bacam.data.build_webshop_index` from the repository root in the WebShop
+environment. Dataset locations can
 be changed using `BACAM_DATA_ROOT`.
 
 [DATA_FORMAT.md](docs/DATA_FORMAT.md) describes the required split schemas and
@@ -202,21 +204,21 @@ Training manifests and teacher caches are generated automatically.
 Before running, make sure all four expert model directories exist, the external
 agent environments are installed, all four dataset split files have been created,
 and the Search retrieval service and WebShop search index have been configured.
-The GPU IDs in `config/paths.env` must refer to four available physical GPUs;
+The GPU IDs in `configs/paths.env` must refer to four available physical GPUs;
 the provided default IDs may not match your machine.
 
 After configuring dependencies, model paths, datasets, splits, GPUs, and ports:
 
 ```bash
-source config/paths.env
-bash evaluation/start_retriever.sh
+source configs/paths.env
+bash scripts/services/start_retriever.sh
 bash scripts/run_all.sh
 ```
 
 To continue an interrupted run with its existing outputs:
 
 ```bash
-source config/paths.env
+source configs/paths.env
 bash scripts/run_all.sh --resume
 ```
 
@@ -227,25 +229,46 @@ the gates, exports a dense model, and evaluates the capabilities learned so far.
 Merged weights are written to `BACAM_MERGE_ROOT` (`outputs/models` by default).
 Generated training data and teacher caches are under `data/`; evaluation results
 and plots are under `artifacts/`; execution logs are under `logs/`.
-Capability checks use 90% of each expert's reference score in `baseline/config.json`.
+Capability checks use 90% of each expert's reference score in `configs/expert_references.json`.
 
 ## Code layout
 
 ```text
-core/         Gate updates, losses, state building, teacher caching, training
-rollout/      Agent interaction, trajectory conversion, dataset/index preparation
-evaluation/   Held-out evaluation and result collection
-analysis/     Training curves, capability plots, tensor gate/budget summaries
-scripts/      Run entry points, merge pipelines, rollout launchers
-config/       Training, paths, GPU and port configuration
-baseline/     Expert reference scores
-docs/         Resource configuration, data formats, and paper results
+BACAM/
+├── bacam/                   Python package
+│   ├── merging/             Gate updates, behavioral losses, training
+│   ├── data/                States, teacher caches, dataset/index preparation
+│   ├── rollout/             Agent interactions and trajectory conversion
+│   ├── evaluation/          Held-out evaluation and result collection
+│   ├── analysis/            Capability plots and tensor diagnostics
+│   └── paths.py             Shared resource configuration
+├── scripts/
+│   ├── run_all.sh           Complete merging workflow
+│   ├── cache_teacher.sh     Parallel teacher caching
+│   ├── pipelines/           Per-stage merge pipelines
+│   ├── rollout/             Agent rollout launchers
+│   ├── evaluate/            Evaluation launchers
+│   ├── services/            Retrieval service
+│   └── lib/                 Shared Shell helpers
+├── configs/
+│   ├── experiment.json      Merging, GPU and port settings
+│   ├── expert_references.json  Expert reference scores
+│   └── paths.env.example    Local resource settings template
+├── docs/                    Configuration, data formats, paper results
+├── assets/figures/          Paper figures (PNG and PDF)
+├── pyproject.toml           Python package metadata
+└── requirements.txt         Core dependencies
 ```
 
-The main algorithm files are `core/gate_ops.py`, `core/loss.py`, and `core/train.py`.
-`core/cache_teacher.py` prepares teacher distributions and behavior masks;
-`core/build_states.py` builds training and budget-probe inputs. The full workflow
+The main algorithm files are `bacam/merging/gate_ops.py`, `bacam/merging/loss.py`, and `bacam/merging/train.py`.
+`bacam/data/cache_teacher.py` prepares teacher distributions and behavior masks;
+`bacam/data/build_states.py` builds training and budget-probe inputs. The full workflow
 starts at `scripts/run_all.sh`. See [PATHS.md](docs/PATHS.md) for resource settings.
+
+Standalone Python entry points use module execution, for example
+`python -m bacam.analysis.plot_capability_trends`. Shell launchers expose the
+checkout to all configured agent interpreters through `PYTHONPATH`; they do not
+require installing the training dependencies into each agent environment.
 
 Model weights, datasets, generated trajectories, caches, checkpoints, and execution
 logs are not bundled. The core pipeline has been checked with a small CPU model;

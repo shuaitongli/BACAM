@@ -1,6 +1,9 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+*.egg-info/
+build/
+dist/
 artifacts/
 logs/
 outputs/
@@ -12,7 +15,7 @@ data/*
 .env
 .env.*
 !.env.example
-config/paths.env
+configs/paths.env
 models/
 datasets/
 third_party/

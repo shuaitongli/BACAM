@@ -1,14 +1,16 @@
 # Local path configuration
 
 An environment variable is a setting exported in your shell, such as
-`export BACAM_MODEL_ROOT="models"`. `source config/paths.env` loads these settings
+`export BACAM_MODEL_ROOT="models"`. `source configs/paths.env` loads these settings
 into the current shell. The repository root is the BACAM directory containing
 `README.md`. A service port identifies a local server used by agent requests;
 two independent services cannot listen on the same address and port.
 
-`core/paths.py` defines shared defaults for Python and shell entry points.
-Shell scripts load these values through `scripts/paths.sh`. No original server
+`bacam/paths.py` defines shared defaults for Python and shell entry points.
+Shell scripts load these values through `scripts/lib/paths.sh`. No original server
 directories or Conda environment names are required by BACAM's own scripts.
+The shared loader also adds the checkout to `PYTHONPATH`, so agent environments
+can run `bacam` modules without installing the core training dependencies.
 
 | Variable | Default |
 | --- | --- |
@@ -21,7 +23,7 @@ directories or Conda environment names are required by BACAM's own scripts.
 | `BACAM_VERL_AGENT_ROOT` | `<external root>/verl-agent` |
 
 Model directory names under `BACAM_MODEL_ROOT` remain those listed in
-`config/experiment.json`. Dataset directories are `alfworld`, `webshop`, and
+`configs/experiment.json`. Dataset directories are `alfworld`, `webshop`, and
 `flashrag_eval` under `BACAM_DATA_ROOT`. Frozen split inputs and generated states
 still live under `<BACAM>/data`; logs and diagnostic artifacts stay under
 `<BACAM>/logs` and `<BACAM>/artifacts`.
@@ -31,10 +33,10 @@ still live under `<BACAM>/data`; logs and diagnostic artifacts stay under
 From the repository root:
 
 ```bash
-cp config/paths.env.example config/paths.env
-# Edit config/paths.env to match your installation.
-source config/paths.env
-python core/paths.py
+cp configs/paths.env.example configs/paths.env
+# Edit configs/paths.env to match your installation.
+source configs/paths.env
+python -m bacam.paths
 ```
 
 The local `paths.env` file is ignored by Git. Source it in the same shell before
@@ -62,7 +64,7 @@ them through `load_experiment`. A plain JSON reader sees the unexpanded template
 
 ## GPUs and ports
 
-`config/experiment.json` contains the default four physical GPU IDs and service
+`configs/experiment.json` contains the default four physical GPU IDs and service
 ports. Set `BACAM_GPUS="0,1,2,3"` before launching to override the GPU list.
 The four entries are assigned to Tool, Search, ALFWorld, and WebShop respectively;
 training and teacher caching use the same list. The current pipeline requires
@@ -75,7 +77,7 @@ precedence. Rollout/evaluation variables follow `BACAM_<TASK>_ROLLOUT_PORT` and
 Invalid GPU lists, invalid ports, and duplicate configured ports fail before launch.
 This checks configuration, not whether another process already occupies a port.
 
-Set overrides in `config/paths.env` and source them before running commands.
+Set overrides in `configs/paths.env` and source them before running commands.
 External retrieval index/model paths and its GPU selection remain in the ReSearch
 retriever YAML, optionally selected by `BACAM_RETRIEVER_CONFIG`.
 Port separation alone does not make shared external BFCL files safe for concurrent

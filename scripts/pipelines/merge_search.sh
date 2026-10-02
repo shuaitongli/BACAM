@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/paths.sh" || exit 1
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/paths.sh" || exit 1
 # T3: WebShop + Tool -> Search.
 set -euo pipefail
 
@@ -10,7 +10,7 @@ if [[ "$#" -ne 0 ]]; then
   exit 2
 fi
 
-EXPERIMENT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+EXPERIMENT="$BACAM_ROOT"
 PY="$BACAM_PYTHON"
 TORCHRUN="$BACAM_TORCHRUN"
 T2FINAL="${BACAM_MERGE_ROOT}/bacam-wtsa-t2-final"
@@ -43,7 +43,7 @@ checkpoint_ready() {
 import json, sys
 from pathlib import Path
 experiment, stage_name, round_name, export_dir = Path(sys.argv[1]), sys.argv[2], sys.argv[3], Path(sys.argv[4])
-config = json.loads((experiment / "config/experiment.json").read_text())
+config = json.loads((experiment / "configs/experiment.json").read_text())
 stage = next(item for item in config["stages"] if item["name"] == stage_name)
 try:
     summary = json.loads((experiment / "artifacts" / stage_name / round_name / "training_summary.json").read_text())
@@ -78,7 +78,7 @@ prepare_data() {
     exit 1
   }
   progress "prepare frozen WebShop, Tool, and Search pools"
-  bash evaluation/start_retriever.sh
+  bash scripts/services/start_retriever.sh
 }
 
 rollout_round() {
@@ -119,12 +119,12 @@ run_round() {
   fi
   rollout_round "$round" "$model"
   progress "$round build WebShop/Tool/Search states"
-  "$PY" core/build_states.py --stage "$STAGE" --round "$round"
+  "$PY" -m bacam.data.build_states --stage "$STAGE" --round "$round"
   progress "$round cache old/new teachers on candidate trajectories"
   bash scripts/cache_teacher.sh "$STAGE" "$round"
   progress "$round train gate on GPUs $BACAM_GPUS"
   CUDA_VISIBLE_DEVICES="$BACAM_GPUS" "$TORCHRUN" --nproc_per_node=4 --master_port="$BACAM_MASTER_PORT" \
-    core/train.py --stage "$STAGE" --round "$round"
+    --module bacam.merging.train --stage "$STAGE" --round "$round"
   progress "$round training complete"
 }
 
@@ -140,22 +140,22 @@ if [[ -e "$T3FINAL" && ! -L "$T3FINAL" ]]; then
 fi
 [[ -L "$T3FINAL" ]] && rm "$T3FINAL"
 ln -s "$T3R2" "$T3FINAL"
-"$PY" analysis/summarize_gate_tensors.py --stage "$STAGE"
-"$PY" analysis/plot_stage.py --stage "$STAGE"
+"$PY" -m bacam.analysis.summarize_gate_tensors --stage "$STAGE"
+"$PY" -m bacam.analysis.plot_stage --stage "$STAGE"
 
 progress "held-out WebShop, Tool, and Search evaluation"
-"$PY" rollout/prepare_search_pool.py --half eval --overwrite
-bash evaluation/run_search_eval.sh t3 "$BACAM_GPU_SEARCH" "$BACAM_SEARCH_EVAL_PORT" & search_pid=$!
-bash evaluation/run_bfcl_eval.sh t3 "$BACAM_GPU_TOOL" & tool_pid=$!
+"$PY" -m bacam.data.prepare_search_pool --half eval --overwrite
+bash scripts/evaluate/run_search_eval.sh t3 "$BACAM_GPU_SEARCH" "$BACAM_SEARCH_EVAL_PORT" & search_pid=$!
+bash scripts/evaluate/run_bfcl_eval.sh t3 "$BACAM_GPU_TOOL" & tool_pid=$!
 EVAL_MODEL_ID=t3 \
 EVAL_MODEL_PATH="$T3FINAL" \
 EVAL_SERVED_NAME=webshop-t3 \
 RESUME=1 RESULT_TAG=vllm \
-  bash evaluation/run_webshop_eval.sh "$BACAM_GPU_WEBSHOP" "$BACAM_WEBSHOP_EVAL_PORT" & webshop_pid=$!
+  bash scripts/evaluate/run_webshop_eval.sh "$BACAM_GPU_WEBSHOP" "$BACAM_WEBSHOP_EVAL_PORT" & webshop_pid=$!
 wait "$search_pid"
 wait "$tool_pid"
 wait "$webshop_pid"
-"$PY" evaluation/collect_results.py --model-id t3
-"$PY" analysis/plot_stage.py --stage "$STAGE"
+"$PY" -m bacam.evaluation.collect_results --model-id t3
+"$PY" -m bacam.analysis.plot_stage --stage "$STAGE"
 cleanup_gate_states
 progress "T3 SEARCH PIPELINE COMPLETE"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/paths.sh" || exit 1
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/paths.sh" || exit 1
 # Usage: bash scripts/rollout/search.sh <stage> <round> <model> [gpu] [port]
 set -euo pipefail
 
@@ -9,7 +9,7 @@ MODEL="${3:?model required}"
 GPU="${4:-$BACAM_GPU_SEARCH}"
 check_gpu "$GPU" || exit 2
 PORT="${5:-$BACAM_SEARCH_ROLLOUT_PORT}"
-EXPERIMENT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+EXPERIMENT="$BACAM_ROOT"
 [[ "$LABEL" != "expert" ]] || { echo "BACAM only permits candidate-generated trajectories" >&2; exit 2; }
 REL="$LABEL/current_raw"
 TAG="bacam-wtsa-$STAGE-$LABEL"
@@ -17,7 +17,7 @@ SAVE_DIR="$EXPERIMENT/artifacts/$STAGE/$REL/search/run"
 STATE_DIR="$EXPERIMENT/data/$STAGE/$REL/states"
 LOG_DIR="$EXPERIMENT/logs/$STAGE/$REL"
 PY="$BACAM_PYTHON"
-"$PY" "$EXPERIMENT/rollout/prepare_search_pool.py" --half train --overwrite \
+"$PY" -m bacam.data.prepare_search_pool --half train --overwrite \
   --selection-key "$STAGE:$LABEL"
 DATASET=$("$BACAM_PYTHON" -c 'import json,sys; print(json.load(open(sys.argv[1]))["dataset_name"])' "$EXPERIMENT/data/splits/search_pool_dataset.json")
 POOL_N=$("$BACAM_PYTHON" -c 'import json,sys; print(json.load(open(sys.argv[1]))["questions"])' "$EXPERIMENT/data/splits/search_pool_dataset.json")
@@ -50,6 +50,6 @@ kill "$SERVER_PID" 2>/dev/null || true
 trap - EXIT
 ROLLOUT=$(find "$SAVE_DIR" -mindepth 2 -maxdepth 2 -name intermediate_data.json -printf '%T@ %p\n' | sort -n | tail -1 | cut -d' ' -f2-)
 [ -n "$ROLLOUT" ] || { echo "search rollout missing"; exit 1; }
-"$BACAM_PYTHON" "$EXPERIMENT/rollout/collect_search_states.py" --stage "$STAGE" \
+"$BACAM_PYTHON" -m bacam.rollout.collect_search_states --stage "$STAGE" \
   --model "$MODEL" --rollout "$ROLLOUT" --output-dir "$STATE_DIR" > "$LOG_DIR/search-collect.log" 2>&1
 echo "$STATE_DIR/search_student_states.jsonl"

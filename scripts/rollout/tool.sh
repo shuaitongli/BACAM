@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/paths.sh" || exit 1
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/paths.sh" || exit 1
 # Usage: bash scripts/rollout/tool.sh <stage> <round> <model> [gpu]
 set -euo pipefail
 
@@ -8,7 +8,7 @@ LABEL="${2:?round required}"
 MODEL="${3:?model required}"
 GPU="${4:-$BACAM_GPU_TOOL}"
 check_gpu "$GPU" || exit 2
-EXPERIMENT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+EXPERIMENT="$BACAM_ROOT"
 BFCL_ROOT="$BACAM_BFCL_ROOT"
 [[ "$LABEL" != "expert" ]] || { echo "BACAM only permits candidate-generated trajectories" >&2; exit 2; }
 REL="$LABEL/current_raw"
@@ -21,8 +21,8 @@ mkdir -p "$RESULT_DIR" "$STATE_DIR" "$LOG_DIR"
 
 unset http_proxy https_proxy all_proxy
 export NO_PROXY="127.0.0.1,localhost" no_proxy="127.0.0.1,localhost"
-"$BACAM_TOOL_PYTHON" "$EXPERIMENT/evaluation/register_bfcl_models.py" > "$LOG_DIR/tool-register.log" 2>&1
-"$BACAM_TOOL_PYTHON" - "$EXPERIMENT/data/splits/bfcl_split.json" "$EXPERIMENT/config/experiment.json" \
+"$BACAM_TOOL_PYTHON" -m bacam.evaluation.register_bfcl_models > "$LOG_DIR/tool-register.log" 2>&1
+"$BACAM_TOOL_PYTHON" - "$EXPERIMENT/data/splits/bfcl_split.json" "$EXPERIMENT/configs/experiment.json" \
   "$IDS_FILE" "$STAGE" "$LABEL" <<'PY'
 import hashlib, json, sys
 split = json.load(open(sys.argv[1]))
@@ -41,7 +41,7 @@ CUDA_VISIBLE_DEVICES="$GPU" VLLM_PORT="$BACAM_TOOL_PORT" \
     --test-category multi_turn_base --run-ids \
     --num-gpus 1 --gpu-memory-utilization 0.85 --result-dir "$RESULT_DIR" --allow-overwrite \
     > "$LOG_DIR/tool-generate.log" 2>&1
-"$BACAM_TOOL_PYTHON" "$EXPERIMENT/rollout/collect_tool_states.py" --stage "$STAGE" --model "$MODEL" \
+"$BACAM_TOOL_PYTHON" -m bacam.rollout.collect_tool_states --stage "$STAGE" --model "$MODEL" \
   --rollout-dir "$RESULT_DIR/$TAG" --candidate-ids "$IDS_FILE" \
   --output-dir "$STATE_DIR" > "$LOG_DIR/tool-collect.log" 2>&1
 echo "$STATE_DIR/tool_student_states.jsonl"

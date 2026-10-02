@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bacam"
+version = "0.1.0"
+description = "Behavior-Aware Continual Agent Merging for Multi-Turn Interaction"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {file = "LICENSE"}
+dynamic = ["dependencies"]
+
+[tool.setuptools.packages.find]
+include = ["bacam*"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = "requirements.txt"}

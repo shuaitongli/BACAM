@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/scripts/paths.sh" || exit 1
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/paths.sh" || exit 1
 # Cache one manifest stream per GPU; teacher assignment is validated in Python
 # against the stage's old_domains/new_domains configuration.
 set -euo pipefail
 
 STAGE="${1:?stage required}"
 ROUND="${2:?round required}"
-EXPERIMENT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+EXPERIMENT="$BACAM_ROOT"
 PY="$BACAM_PYTHON"
-CONFIG="$EXPERIMENT/config/experiment.json"
+CONFIG="$EXPERIMENT/configs/experiment.json"
 LOG_DIR="$EXPERIMENT/logs/$STAGE/$ROUND/teacher_cache"
 
 mapfile -t STREAMS < <("$PY" - "$CONFIG" "$STAGE" <<'PY'
@@ -39,7 +39,7 @@ for index in "${!STREAMS[@]}"; do
   gpu="${GPUS[$index]}"
   log="$LOG_DIR/$stream.log"
   echo "cache $stream on GPU $gpu"
-  CUDA_VISIBLE_DEVICES="$gpu" "$PY" "$EXPERIMENT/core/cache_teacher.py" \
+  CUDA_VISIBLE_DEVICES="$gpu" "$PY" -m bacam.data.cache_teacher \
     --stage "$STAGE" --round "$ROUND" --stream "$stream" --device cuda:0 \
     > "$log" 2>&1 &
   pids+=("$!")

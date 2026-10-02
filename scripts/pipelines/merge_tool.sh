@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/paths.sh" || exit 1
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/paths.sh" || exit 1
 # T2: WebShop -> Tool.
 set -euo pipefail
 
@@ -10,7 +10,7 @@ if [[ "$#" -ne 0 ]]; then
   exit 2
 fi
 
-EXPERIMENT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+EXPERIMENT="$BACAM_ROOT"
 PY="$BACAM_PYTHON"
 TORCHRUN="$BACAM_TORCHRUN"
 WEBSHOP="${BACAM_MODEL_ROOT}/GiGPO-Qwen2.5-7B-Instruct-WebShop"
@@ -43,7 +43,7 @@ checkpoint_ready() {
 import json, sys
 from pathlib import Path
 experiment, stage_name, round_name, export_dir = Path(sys.argv[1]), sys.argv[2], sys.argv[3], Path(sys.argv[4])
-config = json.loads((experiment / "config/experiment.json").read_text())
+config = json.loads((experiment / "configs/experiment.json").read_text())
 stage = next(item for item in config["stages"] if item["name"] == stage_name)
 try:
     summary = json.loads((experiment / "artifacts" / stage_name / round_name / "training_summary.json").read_text())
@@ -98,11 +98,11 @@ run_round() {
   fi
   rollout_round "$round" "$model"
   progress "$round build WebShop/Tool states"
-  "$PY" core/build_states.py --stage "$STAGE" --round "$round"
+  "$PY" -m bacam.data.build_states --stage "$STAGE" --round "$round"
   progress "$round cache old/new teachers on candidate WebShop/Tool trajectories"
   bash scripts/cache_teacher.sh "$STAGE" "$round"
   progress "$round train gate on GPUs $BACAM_GPUS"
-  CUDA_VISIBLE_DEVICES="$BACAM_GPUS" "$TORCHRUN" --nproc_per_node=4 --master_port="$BACAM_MASTER_PORT" core/train.py --stage "$STAGE" --round "$round"
+  CUDA_VISIBLE_DEVICES="$BACAM_GPUS" "$TORCHRUN" --nproc_per_node=4 --master_port="$BACAM_MASTER_PORT" --module bacam.merging.train --stage "$STAGE" --round "$round"
   progress "$round training complete"
 }
 
@@ -118,16 +118,16 @@ if [[ -e "$T2FINAL" && ! -L "$T2FINAL" ]]; then
 fi
 [[ -L "$T2FINAL" ]] && rm "$T2FINAL"
 ln -s "$T2R2" "$T2FINAL"
-"$PY" analysis/summarize_gate_tensors.py --stage "$STAGE"
-"$PY" analysis/plot_stage.py --stage "$STAGE"
+"$PY" -m bacam.analysis.summarize_gate_tensors --stage "$STAGE"
+"$PY" -m bacam.analysis.plot_stage --stage "$STAGE"
 
 progress "held-out WebShop and Tool evaluation"
-bash evaluation/run_bfcl_eval.sh t2 "$BACAM_GPU_TOOL" & tool_pid=$!
+bash scripts/evaluate/run_bfcl_eval.sh t2 "$BACAM_GPU_TOOL" & tool_pid=$!
 EVAL_MODEL_ID=t2 EVAL_MODEL_PATH="$T2FINAL" EVAL_SERVED_NAME=webshop-t2 \
-RESUME=1 RESULT_TAG=vllm bash evaluation/run_webshop_eval.sh "$BACAM_GPU_WEBSHOP" "$BACAM_WEBSHOP_EVAL_PORT" & webshop_pid=$!
+RESUME=1 RESULT_TAG=vllm bash scripts/evaluate/run_webshop_eval.sh "$BACAM_GPU_WEBSHOP" "$BACAM_WEBSHOP_EVAL_PORT" & webshop_pid=$!
 wait "$tool_pid"
 wait "$webshop_pid"
-"$PY" evaluation/collect_results.py --model-id t2
-"$PY" analysis/plot_stage.py --stage "$STAGE"
+"$PY" -m bacam.evaluation.collect_results --model-id t2
+"$PY" -m bacam.analysis.plot_stage --stage "$STAGE"
 cleanup_gate_states
 progress "T2 TOOL PIPELINE COMPLETE"

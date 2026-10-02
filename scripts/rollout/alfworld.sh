@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/paths.sh" || exit 1
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../lib/paths.sh" || exit 1
 # Usage: bash scripts/rollout/alfworld.sh <stage> <round> <model> [gpu] [port]
 set -euo pipefail
 
@@ -14,7 +14,7 @@ check_gpu "$GPU" || exit 2
   exit 2
 }
 
-EXPERIMENT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+EXPERIMENT="$BACAM_ROOT"
 VLLM="$BACAM_VLLM"
 ALFWORLD_PYTHON="$BACAM_ALFWORLD_PYTHON"
 REL="$LABEL/current_raw"
@@ -92,7 +92,7 @@ for _ in $(seq 1 120); do
 done
 [ "$ready" = 1 ] || { echo "ALFWorld candidate server did not become ready" >&2; exit 1; }
 
-"$ALFWORLD_PYTHON" "$EXPERIMENT/rollout/alfworld.py" \
+"$ALFWORLD_PYTHON" -m bacam.rollout.alfworld \
   --stage "$STAGE" \
   --round "$LABEL" \
   --model "$MODEL" \

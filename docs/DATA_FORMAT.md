@@ -134,12 +134,12 @@ do not invent completion summaries for these example rows.
 
 ## 3. Generated training inputs
 
-`core/build_states.py` validates split membership and trajectory lengths, then writes
+`bacam/data/build_states.py` validates split membership and trajectory lengths, then writes
 `data/<stage>/<round>/states/train/<domain>_current.jsonl` and `train_manifest.json`.
 It adds teacher role, KL direction, trajectory position, and the `train_selected`
 and `probe_selected` flags. Training and probe selections may overlap.
 
-`core/cache_teacher.py` reads these generated files and writes `.pt` teacher caches
+`bacam/data/cache_teacher.py` reads these generated files and writes `.pt` teacher caches
 and manifests under `data/<stage>/<round>/teacher_cache/`. These contain response
 tokens, critical-token masks, and teacher top-32 probabilities plus tail mass.
 You do not need to supply those tensors by hand.
