@@ -2,17 +2,22 @@
 
 Official implementation of **BACAM: Behavior-Aware Continual Agent Merging for Multi-Turn Interaction**.
 
-BACAM sequentially merges specialized language-model agents into a single dense
-model, acquiring each incoming capability while preserving previously integrated
-behaviors. It learns parameter-wise interpolation gates on the merged candidate's
-own interaction trajectories, combining task-level behavioral constraints with
-tensor-level conflict-aware update budgets. The gates are folded into the final
-weights, adding no inference-time parameters or computation.
-
-We merge four Qwen2.5-7B-Instruct-based experts for **WebShop, Tool, Search, and
-ALFWorld**. In the default order (WTSA), BACAM achieves **62.82% average success
-rate**, exceeding the strongest evaluated merging baseline by **21.69 percentage
-points**.
+Model merging offers a way to integrate the capabilities of specialized experts,
+but existing agent merging methods typically require all of them to be available
+at once. We study continual agent merging, which integrates incoming experts
+sequentially without retaining previously merged experts. Yet merging in parameter
+space or feature subspaces does not ensure that the merged model acquires an
+incoming expert's behavior on interaction trajectories. Moreover, updates toward
+a new expert can disrupt the merged model's previously integrated interactive
+behavior. Therefore, we propose Behavior-Aware Continual Agent Merging (BACAM),
+which learns parameter-wise merging gates from candidate-generated trajectories
+using expert-guided behavioral supervision. Task-level stability–plasticity control
+and tensor-level conflict-aware update budgets limit interference with existing
+capabilities while allowing new ones to be acquired. The learned gates are folded
+into the model weights without additional inference-time parameters. Across four
+interactive tasks—web shopping, tool use, information retrieval, and embodied
+interaction—BACAM achieves an average success rate of 62.82%, exceeding the
+strongest evaluated merging baseline by 21.69 percentage points.
 
 ## Contents
 
@@ -29,35 +34,35 @@ points**.
 
 ## Method
 
-![Overview of BACAM: candidate-generated trajectories, task-level behavioral control, and tensor-level conflict budgets.](assets/figures/overview.png)
+![Overview of BACAM: candidate-generated trajectories, task-level stability–plasticity control, and tensor-level conflict-aware plasticity budgeting.](assets/figures/overview.png)
 
-BACAM combines three components:
+BACAM learns parameter-wise gates between the current merged model and each
+incoming expert. It comprises two components:
 
-1. **New-task Plasticity Control (NPC).** Forward KL to the incoming expert guides
-   capability acquisition on candidate-generated histories, with explicit weighting
-   of behavior-critical response regions.
-2. **Old-task Stability Control (OSC).** Reverse KL to the previous merged model
-   constrains drift on earlier tasks; a separate adaptive multiplier enforces each
-   task's stability budget.
-3. **Conflict-Aware Plasticity Budgeting (CAPB).** Local gradient probes estimate
-   tensor-level conflicts and sensitivity, restricting gate updates toward the new
-   expert where they threaten earlier capabilities.
+1. **Task-Level Stability–Plasticity Control.** On candidate-generated histories,
+   New-task Plasticity Control (NPC) uses forward KL to acquire the incoming
+   expert's behavior, while Old-task Stability Control (OSC) constrains reverse KL
+   to the current merged model to preserve existing behavior.
+2. **Tensor-Level Conflict-Aware Plasticity Budgeting (CAPB).** Local gradient
+   probes identify conflicts and restrict gate updates toward the incoming expert
+   in conflicting tensors.
 
-The two source models remain frozen. Only the parameter-wise gate is optimized:
+The current merged model and incoming expert remain frozen, and only the
+parameter-wise gate is optimized:
 
 ```text
 theta_merged = theta_old + g * (theta_new - theta_old),  g in [0, 1]
 ```
 
-Earlier experts need not be retained. Their task inputs and environments remain
-available for interaction, while the previous merged model provides stability
-supervision. All experts must share the same architecture and tokenizer.
+Earlier experts are no longer retained, but the instances and environments for all
+integrated tasks remain available for collecting trajectories. All experts share
+the same architecture and tokenizer.
 
 ## Results
 
-Final success rates (%) after merging four experts. Continual methods use WTSA;
-batch methods merge the same experts. Avg is the mean of the five task columns,
-counting ALFWorld IID and OOD separately.
+Final success rates (SR, %) after four experts. Continual methods use WTSA; batch
+methods use the same experts. Avg is the mean of the five reported columns,
+counting the two ALFWorld splits separately.
 
 | Method | WebShop | Tool | Search | ALFWorld IID | ALFWorld OOD | Avg |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -73,20 +78,19 @@ counting ALFWorld IID and OOD separately.
 | **BACAM** | **77.20** | **38.00** | **23.75** | **88.57** | **86.57** | **62.82** |
 
 This is a selection of the evaluated baselines; the [full comparison and ablations](docs/RESULTS.md)
-include all methods. Tool uses BFCL `multi_turn_base`; Search uses MuSiQue.
+include all methods. Tool uses BFCL v3 `multi_turn_base`; Search uses MuSiQue.
 
 ### Performance across merging stages
 
-![Success rates after each integration under WTSA, ASTW, TWAS, and SAWT.](assets/figures/merging_stages.png)
+![BACAM's stage-wise SR (%) under four arrival orders.](assets/figures/merging_stages.png)
 
-W = WebShop, T = Tool, S = Search, A = ALFWorld. Cell values are success rates (%);
-shading indicates performance relative to the corresponding expert. A dash marks
-a task whose expert has not yet been integrated. Order affects acquisition and
-retention: final average success rates range from 56.02% to 62.82%.
+W, T, S, and A denote WebShop, Tool, Search, and ALFWorld. Cell values are SR;
+shading shows SR relative to the corresponding expert. A dash marks tasks not yet
+integrated. Final Avg SR ranges from 56.02% in SAWT to 62.82% in WTSA.
 
 ## Installation
 
-Training uses four GPUs. Install the core environment:
+Install the core environment:
 
 ```bash
 git clone https://github.com/shuaitongli/BACAM.git
@@ -105,7 +109,7 @@ agent-specific interpreters using [PATHS.md](docs/PATHS.md).
 
 ## Expert models
 
-Download the four experts into `models/`:
+Download the four specialized experts built on Qwen2.5-7B-Instruct into `models/`:
 
 | Agent | Hugging Face checkpoint |
 | --- | --- |
@@ -224,9 +228,9 @@ To continue an interrupted run:
 bash scripts/run_all.sh --resume
 ```
 
-The default sequence is WebShop, Tool, Search, ALFWorld. Merged weights are saved
-under `outputs/models/`, evaluation results under `artifacts/eval/`, and logs under
-`logs/`.
+The default merging order is WebShop, Tool, Search, ALFWorld, with the WebShop
+expert as the initial model. Merged weights are saved under `outputs/models/`,
+evaluation results under `artifacts/eval/`, and logs under `logs/`.
 
 ## Code layout
 
