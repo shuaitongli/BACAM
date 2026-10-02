@@ -8,6 +8,7 @@ from bacam.paths import PATHS
 
 
 CONFIG = Path(PATHS["BACAM_BFCL_ROOT"]) / "bfcl_eval/constants/model_config.py"
+HANDLER_IMPORT = "from bfcl_eval.model_handler.local_inference.rlla import RLLAHandler\n"
 BEGIN = "    # >>> BACAM BEGIN\n"
 END = "    # <<< BACAM END\n"
 STAGES = ("t2_tool", "t3_search", "t4_alfworld")
@@ -19,8 +20,8 @@ TAGS = tuple(f"bacam-wtsa-{stage}-{label}" for stage in STAGES for label in LABE
 ENTRY = '''    "{name}": ModelConfig(
         model_name="{name}",
         display_name="BACAM: {name}",
-        url="https://github.com/zihuanqiu/NUFILT",
-        org="functional-merge",
+        url="https://github.com/shuaitongli/BACAM",
+        org="BACAM",
         license="apache-2.0",
         model_handler=RLLAHandler,
         input_price=None,
@@ -39,6 +40,10 @@ def map_close_line(lines: list[str]) -> int:
 
 def main() -> None:
     lines = CONFIG.read_text(encoding="utf-8").splitlines(keepends=True)
+    if HANDLER_IMPORT not in lines:
+        start = next(index for index, line in enumerate(lines)
+                     if line.startswith("local_inference_model_map = {"))
+        lines.insert(start, HANDLER_IMPORT + "\n")
     if BEGIN in lines:
         begin, end = lines.index(BEGIN), lines.index(END)
         del lines[begin:end + 1]

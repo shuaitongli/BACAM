@@ -28,7 +28,7 @@ export NO_PROXY="127.0.0.1,localhost" no_proxy="127.0.0.1,localhost"
 curl -sf http://127.0.0.1:$BACAM_RETRIEVER_PORT/health >/dev/null || { echo "retriever $BACAM_RETRIEVER_PORT not ready"; exit 1; }
 
 ( export MODEL="$MODEL" SERVED_NAME="$TAG" SGL_GPUS="$GPU" SGL_TP=1 SGL_PORT="$PORT"
-  exec setsid bash "${BACAM_RESEARCH_ROOT}/run_search_eval.sh" sglang
+  exec setsid bash "$EXPERIMENT/scripts/services/start_search.sh"
 ) > "$LOG_DIR/sglang.log" 2>&1 &
 SERVER_PID=$!
 trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT

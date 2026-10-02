@@ -33,7 +33,6 @@ from bacam.evaluation.eval_alfworld_expert import (  # noqa: E402
     load_projection,
     scalar,
     task_type,
-    verify_reproduction_sources,
 )
 
 
@@ -296,7 +295,6 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    verify_reproduction_sources(args.config_path, args.projection_path)
     projection = load_projection(args.projection_path)
     split = json.loads(args.split.read_text())
     if Path(split["data_root"]).resolve() != args.data_path.resolve():

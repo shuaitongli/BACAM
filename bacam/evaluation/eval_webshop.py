@@ -21,7 +21,6 @@ EXPERIMENT = Path(__file__).resolve().parents[2]
 from bacam.paths import PATHS, load_experiment
 
 VERL_AGENT = Path(PATHS["BACAM_VERL_AGENT_ROOT"])
-MODEL_CARD_COMMIT = "35b3da38293993f9bf4f7873dfb3262a361e956c"
 DEFAULT_DATA = Path(PATHS["BACAM_DATA_ROOT"]) / "webshop"
 DEFAULT_INDEX = DEFAULT_DATA / "search_engine_1k/indexes"
 DEFAULT_MODEL = Path(PATHS["BACAM_MODEL_ROOT"]) / "GiGPO-Qwen2.5-7B-Instruct-WebShop"
@@ -31,19 +30,7 @@ WEBSHOP_ROOT = (
 PROJECTION_PATH = (
     VERL_AGENT / "agent_system/environments/env_package/webshop/projection.py")
 PROMPT_PATH = VERL_AGENT / "agent_system/environments/prompts/webshop.py"
-MEMORY_PATH = VERL_AGENT / "agent_system/memory/memory.py"
-TEXT_ENV_PATH = WEBSHOP_ROOT / "web_agent_site/envs/web_agent_text_env.py"
-ENGINE_PATH = WEBSHOP_ROOT / "web_agent_site/engine/engine.py"
-GOAL_PATH = WEBSHOP_ROOT / "web_agent_site/engine/goal.py"
 
-EXPECTED_SOURCE_SHA256 = {
-    PROJECTION_PATH: "0808d4643459acf2a4c496eab3fc8735025c440f28cc517066355a1f5fbc048f",
-    PROMPT_PATH: "c7411b8a8fe1f8d587a5585a57ce3ae85ab87bbd7a021f2e39c03f97e214b738",
-    MEMORY_PATH: "d9940bf9d49442f76667b80aff7e80b7c93f37bef015b06641e60229bb3f0d9c",
-    TEXT_ENV_PATH: "a2a2cfe3e7ef493857ba68c28fd6d12ec012e0f8cb31a050112f6466084e3f55",
-    ENGINE_PATH: "86bb46b593d3672da3a9fbe216f1d34a34a7a915f7ad31a101bdcc7f2a62ca4b",
-    GOAL_PATH: "9703c8583244e2041182eb14856186b998145ab16ce2ba9aef8cb680877c8ed5",
-}
 EXPECTED_DATA_SHA256 = {
     "items_shuffle_1000.json": "30a4765c3a327af72d9a9a95a6b2486d516f0fa1d3ecd83681901ce82a21b269",
     "items_ins_v2_1000.json": "f88a36314a397b53b3d9c3fa5878e5f7b26d35019a51ec83fbedeca61a948f6f",
@@ -67,16 +54,6 @@ def load_module(name: str, path: Path) -> Any:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
-
-def verify_sources() -> None:
-    for path, expected in EXPECTED_SOURCE_SHA256.items():
-        if not path.is_file():
-            raise FileNotFoundError(path)
-        actual = sha256(path)
-        if actual != expected:
-            raise RuntimeError(
-                f"pinned verl-agent source drift for {path}: {actual} != {expected}")
 
 
 def format_available_actions(available: dict[str, Any]) -> list[str]:
@@ -279,8 +256,7 @@ def run_batch(envs: list[Any], start_ordinal: int, goal_indices: list[int],
 
 
 def build_summary(args: argparse.Namespace, episodes: list[dict[str, Any]],
-                  started_at: str, data_hashes: dict[str, str],
-                  source_hashes: dict[str, str]) -> dict[str, Any]:
+                  started_at: str, data_hashes: dict[str, str]) -> dict[str, Any]:
     scores = [float(episode["task_score"]) for episode in episodes]
     successes = sum(bool(episode["won"]) for episode in episodes)
     rounds = [int(episode["steps"]) for episode in episodes]
@@ -302,8 +278,6 @@ def build_summary(args: argparse.Namespace, episodes: list[dict[str, Any]],
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "source": {
             "repository": "langfengQ/verl-agent",
-            "model_card_commit": MODEL_CARD_COMMIT,
-            "source_sha256": source_hashes,
             "data_sha256": data_hashes,
             "index_manifest": str(args.index_path.parent / "index_manifest.json"),
         },
@@ -432,6 +406,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def create_environment_pool(args: argparse.Namespace) -> tuple[list[Any], Any, Any]:
+    java_home = Path(sys.prefix) / "lib/jvm"
+    if java_home.is_dir():
+        os.environ.setdefault("JAVA_HOME", str(java_home))
     sys.path.insert(0, str(WEBSHOP_ROOT))
     from pyserini.search.lucene import LuceneSearcher
     from web_agent_site.engine import engine
@@ -464,10 +441,7 @@ def create_environment_pool(args: argparse.Namespace) -> tuple[list[Any], Any, A
 
 def main() -> None:
     args = parse_args()
-    verify_sources()
     data_hashes = validate_paths(args)
-    source_hashes = {str(path): expected
-                     for path, expected in EXPECTED_SOURCE_SHA256.items()}
     episodes, started_at = load_resume(args)
     if len(episodes) >= args.goal_count:
         print(f"Already complete: {args.output}")
@@ -491,7 +465,7 @@ def main() -> None:
                 projection, templates, parse_action))
             completed = len(episodes)
             summary = build_summary(
-                args, episodes, started_at, data_hashes, source_hashes)
+                args, episodes, started_at, data_hashes)
             atomic_write_json(args.output, summary)
             metrics = summary["evaluation"]
             print(

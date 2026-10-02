@@ -2,7 +2,10 @@
 
 All IDs, paths, instructions, and responses below are fictional. These examples
 describe the input format; they are not the experiment's data or a runnable dataset.
-The actual split JSON files are not distributed.
+The original experiment's selected IDs are not distributed. Generate the four
+split files locally with `python -m bacam.data.generate_splits --domain <domain>`
+after installing the corresponding dataset and agent environment. For WebShop,
+build the search index first. Existing split files are never overwritten.
 
 A split lists which examples are used for training and which are reserved for
 evaluation. An episode is a complete agent interaction; a state is one input and
@@ -13,7 +16,7 @@ their metadata.
 
 ## 1. Dataset splits
 
-Provide the following files under `data/splits/`. The state builder currently
+The generator writes the following files under `data/splits/`. The state builder currently
 reads all four split files, including when building an early merging stage.
 Training and held-out IDs must be disjoint and must refer to your installed data.
 
@@ -150,6 +153,6 @@ The default builder requires at least 256 valid states and 24 valid probe episod
 per stream after filtering. ALFWorld/WebShop probe selection also has per-category
 quotas. These small examples do not meet those requirements.
 
-The default pools contain 144 ALFWorld episodes and 128 WebShop goals;
+The generator defaults to 144 ALFWorld episodes and 128 WebShop goals;
 evaluation also requires the expected held-out sizes.
 The examples illustrate schemas, not a replacement for those full experiment inputs.

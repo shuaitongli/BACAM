@@ -56,7 +56,7 @@ pkill -f "sglang.launch_server.*--port $SGL_PORT" 2>/dev/null || true
 sleep 3
 say "$TAG 起 sglang（GPU $GPU，port $SGL_PORT）"
 ( export MODEL="$MODEL" SERVED_NAME="$TAG" SGL_GPUS="$GPU" SGL_TP=1 SGL_PORT="$SGL_PORT"
-  exec setsid bash "${BACAM_RESEARCH_ROOT}/run_search_eval.sh" sglang
+  exec setsid bash "$EXPERIMENT/scripts/services/start_search.sh"
 ) > "$LOGS/sglang-$MID.log" 2>&1 &
 
 ready=0

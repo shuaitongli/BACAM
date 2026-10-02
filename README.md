@@ -134,13 +134,41 @@ hf download langfeng01/GiGPO-Qwen2.5-7B-Instruct-ALFWorld \
 | ALFWorld | [verl-agent / GiGPO](https://github.com/langfengQ/verl-agent), [ALFWorld](https://github.com/alfworld/alfworld) |
 | WebShop | [verl-agent / GiGPO](https://github.com/langfengQ/verl-agent), [WebShop](https://github.com/princeton-nlp/WebShop) |
 
-Install the agent environments following their original repositories.
+Use a separate environment for each agent, installed following its original repository.
+Do not install all agent dependencies into the core training environment.
+
+| Component | Interpreter / command setting |
+| --- | --- |
+| Core training and teacher caching | `BACAM_PYTHON`, `BACAM_TORCHRUN` |
+| Tool | `BACAM_TOOL_PYTHON`, `BACAM_BFCL` |
+| Search evaluation and retrieval | `BACAM_SEARCH_PYTHON` |
+| Search model serving | `BACAM_SGLANG_PYTHON` |
+| ALFWorld environment | `BACAM_ALFWORLD_PYTHON` |
+| WebShop environment | `BACAM_WEBSHOP_PYTHON` |
+| ALFWorld / WebShop model serving | `BACAM_VLLM` |
+
+Point these settings to the corresponding environments in `configs/paths.env`;
+see [PATHS.md](docs/PATHS.md). Unset interpreter settings use the current Python.
+
 Place the checkouts at `third_party/ReSearch`,
 `third_party/bfcl-toolrl`, and `third_party/verl-agent`, or override their locations
 as described in [PATHS.md](docs/PATHS.md).
-The adapters require compatible ReSearch launch/evaluation interfaces and BFCL's
-RLLA handler; ALFWorld/WebShop also verify source-file hashes. Upstream checkouts
-alone may not provide all required interfaces.
+For BFCL, use the [2025.7.17 source distribution](https://pypi.org/project/bfcl-eval/2025.7.17/#files),
+download the archive into the BACAM root, then run in the Tool environment:
+
+```bash
+mkdir -p third_party/bfcl-toolrl
+tar -xzf bfcl_eval-2025.7.17.tar.gz --strip-components=1 -C third_party/bfcl-toolrl
+python -m pip install -e './third_party/bfcl-toolrl[oss_eval_vllm]'
+```
+
+BACAM includes the required Search and Tool adaptations under `integrations/`.
+After installing the external repositories, apply them once from the BACAM root
+in the core environment:
+
+```bash
+bash scripts/install_adapters.sh
+```
 
 ## Data preparation
 
@@ -161,8 +189,19 @@ WebShop expects `items_shuffle_1000.json`, `items_ins_v2_1000.json`, and
 `python -m bacam.data.build_webshop_index` from the repository root in the WebShop
 environment.
 
-Split formats are documented in [DATA_FORMAT.md](docs/DATA_FORMAT.md). Actual
-split files and a complete split-generation procedure are not included.
+Generate the split inputs locally. Run each command in the corresponding agent
+environment, from the BACAM root:
+
+```bash
+python -m bacam.data.generate_splits --domain search
+python -m bacam.data.generate_splits --domain tool
+python -m bacam.data.generate_splits --domain alfworld
+python -m bacam.data.generate_splits --domain webshop
+```
+
+Generated files stay under `data/splits/` and are not committed. The original
+experiment's selected IDs are not distributed; results may vary with locally
+generated splits. See [DATA_FORMAT.md](docs/DATA_FORMAT.md) for the input format.
 
 ## Training and evaluation
 
@@ -196,6 +235,7 @@ BACAM/
 │   └── paths.py             Shared resource configuration
 ├── scripts/
 │   ├── run_all.sh           Complete merging workflow
+│   ├── install_adapters.sh  External repository adaptations
 │   ├── cache_teacher.sh     Parallel teacher caching
 │   ├── pipelines/           Per-stage merge pipelines
 │   ├── rollout/             Agent rollout launchers
@@ -207,6 +247,7 @@ BACAM/
 │   ├── expert_references.json  Expert reference scores
 │   └── paths.env.example    Local resource settings template
 ├── docs/                    Configuration, data formats, paper results
+├── integrations/            Required Search and Tool adaptations
 ├── assets/figures/          Paper figures (PNG and PDF)
 ├── pyproject.toml           Python package metadata
 └── requirements.txt         Core dependencies
@@ -230,3 +271,5 @@ model-merging baseline implementations used in our experiments.
 BACAM's original code is released under the [MIT License](LICENSE).
 External repositories, model weights, and datasets remain subject to their own
 licenses and usage conditions.
+The adaptations under `integrations/` retain their upstream MIT or Apache-2.0
+licenses, included alongside the files.

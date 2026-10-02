@@ -38,6 +38,7 @@ def configured_paths() -> dict[str, str]:
         "BACAM_TORCHRUN": "torchrun",
         "BACAM_TOOL_PYTHON": python,
         "BACAM_SEARCH_PYTHON": python,
+        "BACAM_SGLANG_PYTHON": python,
         "BACAM_ALFWORLD_PYTHON": python,
         "BACAM_WEBSHOP_PYTHON": python,
         "BACAM_VLLM": "vllm",

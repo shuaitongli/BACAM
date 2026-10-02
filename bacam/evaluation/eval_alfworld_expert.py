@@ -5,14 +5,12 @@ The script intentionally keeps model serving separate from the Python 3.9
 ALFWorld environment.  It uses ALFWorld's official TextWorld environment and
 loads verl-agent's action projection directly from the checked-out source.
 
-The defaults follow the commit linked by the released model card:
-35b3da38293993f9bf4f7873dfb3262a361e956c
+The defaults follow the prompts and settings in the released model card.
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import importlib.util
 import json
 import os
@@ -31,14 +29,6 @@ import yaml
 
 from bacam.paths import PATHS, load_experiment
 
-
-MODEL_CARD_COMMIT = "35b3da38293993f9bf4f7873dfb3262a361e956c"
-EXPECTED_PROJECTION_SHA256 = (
-    "e794d1217d613ef4b550cfe4bfd0b39b4deb10d47493f31f78aef7b5ebf6dd98"
-)
-EXPECTED_CONFIG_SHA256 = (
-    "a33f87ab43253ea602f93c9a0b176771a8ae16a34cd953130e45fc03700f1f49"
-)
 
 VERL_AGENT = Path(PATHS["BACAM_VERL_AGENT_ROOT"])
 DEFAULT_DATA = Path(PATHS["BACAM_DATA_ROOT"]) / "alfworld"
@@ -76,30 +66,6 @@ Now it's your turn to take an action.
 You should first reason step-by-step about the current situation. This reasoning process MUST be enclosed within <think> </think> tags. 
 Once you've finished your reasoning, you should choose an admissible action for current step and present it within <action> </action> tags.
 """
-
-
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def verify_reproduction_sources(config_path: Path, projection_path: Path) -> None:
-    expected = {
-        config_path: EXPECTED_CONFIG_SHA256,
-        projection_path: EXPECTED_PROJECTION_SHA256,
-    }
-    for path, expected_hash in expected.items():
-        if not path.is_file():
-            raise FileNotFoundError(f"Required upstream file does not exist: {path}")
-        actual_hash = sha256(path)
-        if actual_hash != expected_hash:
-            raise RuntimeError(
-                f"Upstream source drift detected for {path}: "
-                f"expected {expected_hash}, got {actual_hash}"
-            )
 
 
 def load_projection(path: Path) -> Callable[[list[str], list[list[str]]], Any]:
@@ -425,9 +391,6 @@ def build_summary(
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "source": {
             "repository": "langfengQ/verl-agent",
-            "model_card_commit": MODEL_CARD_COMMIT,
-            "config_sha256": EXPECTED_CONFIG_SHA256,
-            "projection_sha256": EXPECTED_PROJECTION_SHA256,
         },
         "model": {
             "path": str(args.model_path),
@@ -583,7 +546,6 @@ def load_resume(path: Path, args: argparse.Namespace) -> tuple[list[dict[str, An
 def main() -> int:
     args = parse_args()
     validate_paths(args)
-    verify_reproduction_sources(args.config_path, args.projection_path)
     projection = load_projection(args.projection_path)
 
     os.environ["ALFWORLD_DATA"] = str(args.data_path)

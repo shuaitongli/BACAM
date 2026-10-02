@@ -29,7 +29,6 @@ from bacam.evaluation.eval_webshop import (  # noqa: E402
     initialize_episode,
     load_module,
     validate_paths,
-    verify_sources,
 )
 
 
@@ -318,7 +317,6 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    verify_sources()
     validate_paths(args)
     split = json.loads(args.split.read_text(encoding="utf-8"))
     if Path(split["data_root"]).resolve() != args.data_path:

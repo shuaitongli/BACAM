@@ -1,0 +1,92 @@
+diff --git a/src/flashrag/generator/generator.py b/src/flashrag/generator/generator.py
+index cc576de..ffe75d1 100644
+--- a/src/flashrag/generator/generator.py
++++ b/src/flashrag/generator/generator.py
+@@ -319,8 +319,11 @@ class SGLRemoteGenerator(BaseGenerator):
+             do_sample_flag = generation_params.pop("do_sample")
+             if not do_sample_flag:
+                 curr_sampling_params["temperature"] = 0
+-        # max_new_tokens
+-        curr_sampling_params["max_new_tokens"] = self.config["generator_max_input_len"]
++        # Keep the continuation within the remaining SGLang context.
++        budget = self.config["generator_max_input_len"]
++        max_new_tokens = generation_params.pop("max_new_tokens", budget)
++        prompt_len = max(len(self.tokenizer.encode(text)) for text in input_list)
++        curr_sampling_params["max_new_tokens"] = max(1, min(max_new_tokens, budget - prompt_len))
+         # stop
+         if "stop" in generation_params:
+             curr_sampling_params["stop"] = generation_params.pop("stop")
+diff --git a/src/flashrag/pipeline/active_pipeline.py b/src/flashrag/pipeline/active_pipeline.py
+index d078dce..356243c 100644
+--- a/src/flashrag/pipeline/active_pipeline.py
++++ b/src/flashrag/pipeline/active_pipeline.py
+@@ -1,4 +1,6 @@
++import os
+ import re
++import json
+ from tqdm import tqdm
+ from typing import List, Tuple
+ import math
+@@ -105,11 +107,57 @@ class ReSearchPipeline(BasicPipeline):
+             item.update_output("pred", answer)
+ 
+         
++    def _cache_path(self):
++        """Keep the resume cache outside timestamped output directories."""
++        save_dir = self.config["save_dir"].rstrip("/")
++        split = self.config["split"]
++        split = "_".join(split) if isinstance(split, (list, tuple)) else str(split)
++        return os.path.join(os.path.dirname(save_dir), f"cache_{self.config['dataset_name']}_{split}.jsonl")
++
++    @staticmethod
++    def _load_cache(path):
++        done = {}
++        if os.path.exists(path):
++            with open(path, encoding="utf-8") as f:
++                for line in f:
++                    try:
++                        rec = json.loads(line)
++                    except json.JSONDecodeError:
++                        continue  # Ignore an interrupted trailing record.
++                    done[rec["key"]] = rec["output"]
++        return done
++
+     def run(self, dataset, do_eval=True, pred_process_fun=None):
+-        with ThreadPoolExecutor(max_workers=100) as executor:
+-            futures = [executor.submit(self.run_item, item) for item in dataset]
+-            for future in tqdm(as_completed(futures), total=len(futures), desc="Inference: "):
+-                future.result()
+-        
++        cache_path = self._cache_path()
++        done = self._load_cache(cache_path)
++
++        todo = []
++        for item in dataset:
++            key = str(item.id) if item.id is not None else item.question
++            if key in done:
++                for k, v in done[key].items():
++                    if k != "metric_score":
++                        item.update_output(k, v)
++            else:
++                todo.append((key, item))
++        print(f"Resume cache {cache_path}: {len(done)} cached, {len(todo)} pending")
++
++        if todo:
++            with open(cache_path, "a", encoding="utf-8") as cache_f, \
++                 ThreadPoolExecutor(max_workers=100) as executor:
++                futures = {executor.submit(self.run_item, item): (key, item) for key, item in todo}
++                for future in tqdm(as_completed(futures), total=len(futures), desc="Inference: "):
++                    key, item = futures[future]
++                    try:
++                        future.result()
++                    except Exception as e:
++                        # Do not cache failed items; retry them on the next run.
++                        item.update_output("final_response", "")
++                        item.update_output("pred", "")
++                        item.update_output("error", str(e))
++                        continue
++                    cache_f.write(json.dumps({"key": key, "output": item.output}, ensure_ascii=False) + "\n")
++                    cache_f.flush()
++
+         dataset = self.evaluate(dataset, do_eval=do_eval, pred_process_fun=pred_process_fun)
+         return dataset

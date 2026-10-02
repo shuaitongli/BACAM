@@ -51,6 +51,8 @@ to `python` on PATH; Python entry points default to their current interpreter.
 `BACAM_TOOL_PYTHON`, `BACAM_SEARCH_PYTHON`, `BACAM_ALFWORLD_PYTHON`, and
 `BACAM_WEBSHOP_PYTHON` can point to separate environments, and otherwise inherit
 the main interpreter.
+`BACAM_SGLANG_PYTHON` selects the Search model-serving environment separately
+from the Search evaluation/retrieval environment.
 
 `BACAM_TORCHRUN`, `BACAM_VLLM`, and `BACAM_BFCL` default to the corresponding
 commands on PATH. If environments differ, set both the Python and command paths
