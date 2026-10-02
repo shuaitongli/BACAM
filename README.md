@@ -296,6 +296,9 @@ BACAM uses experts and interaction environments from
 [ALFWorld](https://github.com/alfworld/alfworld), and
 [WebShop](https://github.com/princeton-nlp/WebShop).
 
+We also thank [mergekit](https://github.com/arcee-ai/mergekit) for providing
+model-merging baseline implementations used in our experiments.
+
 ## License
 
 BACAM's original code is released under the [MIT License](LICENSE).
