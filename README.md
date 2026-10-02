@@ -31,8 +31,6 @@ points**.
 
 ![Overview of BACAM: candidate-generated trajectories, task-level behavioral control, and tensor-level conflict budgets.](assets/figures/overview.png)
 
-[Vector figure (PDF)](assets/figures/overview.pdf)
-
 BACAM combines three components:
 
 1. **New-task Plasticity Control (NPC).** Forward KL to the incoming expert guides
@@ -88,11 +86,7 @@ retention: final average success rates range from 56.02% to 62.82%.
 
 ## Installation
 
-The training pipeline uses four GPUs, FSDP, BF16, and FlashAttention.
-The core Python dependencies are pinned in `requirements.txt`.
-Clone the repository and install the core dependencies below. Install the agent
-environments from their respective repositories. After cloning, run subsequent
-commands from the BACAM directory.
+Training uses four GPUs. Install the core environment:
 
 ```bash
 git clone https://github.com/shuaitongli/BACAM.git
@@ -105,25 +99,13 @@ python -m pip install packaging ninja psutil setuptools
 python -m pip install flash-attn --no-build-isolation
 ```
 
-Building [FlashAttention](https://github.com/Dao-AILab/flash-attention#installation-and-features)
-requires a compatible CUDA toolkit with `nvcc` and a C++ compiler. Agent-specific
-environment setup is provided by the external repositories listed below.
-
-The default locations are `models/` for expert weights, `datasets/` for datasets,
-and `third_party/` for external repositories. GPU IDs and service ports are in
-`configs/experiment.json`. The launchers use the active environment's Python
-and commands on PATH by default; no editable package installation or local
-`paths.env` file is required.
-
-If resources are stored elsewhere or agents use separate environments, configure
-their paths and executables as described in [PATHS.md](docs/PATHS.md) before
-running. The optional settings file is only a convenience for these overrides.
+Default resource directories are `models/`, `datasets/`, and `third_party/`.
+Set GPU IDs and ports in `configs/experiment.json`; configure resource paths and
+agent-specific interpreters using [PATHS.md](docs/PATHS.md).
 
 ## Expert models
 
-Download the four complete model repositories, including weights, configuration,
-and tokenizer files. The directory names below match the experiment configuration.
-`BACAM_MODEL_ROOT` defaults to `models/` inside this repository.
+Download the four experts into `models/`:
 
 | Agent | Hugging Face checkpoint |
 | --- | --- |
@@ -143,11 +125,6 @@ hf download langfeng01/GiGPO-Qwen2.5-7B-Instruct-ALFWorld \
   --local-dir models/GiGPO-Qwen2.5-7B-Instruct-ALFWorld
 ```
 
-See the [Hugging Face CLI guide](https://huggingface.co/docs/huggingface_hub/guides/cli)
-for CLI installation and authentication. Add `--revision <commit>` to pin a
-checkpoint for reproducibility. Model downloads do not include environment
-datasets or the retrieval corpus/index.
-
 ## External repositories
 
 | Agent | Repository |
@@ -157,21 +134,17 @@ datasets or the retrieval corpus/index.
 | ALFWorld | [verl-agent / GiGPO](https://github.com/langfengQ/verl-agent), [ALFWorld](https://github.com/alfworld/alfworld) |
 | WebShop | [verl-agent / GiGPO](https://github.com/langfengQ/verl-agent), [WebShop](https://github.com/princeton-nlp/WebShop) |
 
-Install each external agent and its environment according to its original
-repository's README. Place the checkouts at `third_party/ReSearch`,
+Install the agent environments following their original repositories.
+Place the checkouts at `third_party/ReSearch`,
 `third_party/bfcl-toolrl`, and `third_party/verl-agent`, or override their locations
 as described in [PATHS.md](docs/PATHS.md).
-These repositories are not bundled here. The adapters require
-the ReSearch launch/evaluation interfaces and BFCL's RLLA handler; some environment
-adapters check external source-file hashes. An arbitrary upstream checkout may
-not satisfy these interfaces. BFCL runners modify shared registration and case-ID
-files, so separate GPUs and ports alone do not isolate concurrent runs.
+The adapters require compatible ReSearch launch/evaluation interfaces and BFCL's
+RLLA handler; ALFWorld/WebShop also verify source-file hashes. Upstream checkouts
+alone may not provide all required interfaces.
 
 ## Data preparation
 
-Prepare the environment datasets, the Search retrieval corpus/index, and the four
-split files under `data/splits/`. Training and held-out examples must be disjoint.
-Tool training and evaluation use only BFCL `multi_turn_base`.
+Prepare the following datasets and four split files under `data/splits/`:
 
 | Agent | Dataset used | Download/source |
 | --- | --- | --- |
@@ -186,44 +159,29 @@ The default Search question file is `datasets/flashrag_eval/musique/dev.jsonl`.
 WebShop expects `items_shuffle_1000.json`, `items_ins_v2_1000.json`, and
 `items_human_ins.json` under `datasets/webshop/`; build its index with
 `python -m bacam.data.build_webshop_index` from the repository root in the WebShop
-environment. Dataset locations can
-be changed using `BACAM_DATA_ROOT`.
+environment.
 
-[DATA_FORMAT.md](docs/DATA_FORMAT.md) describes the required split schemas and
-provides fictional examples. Actual split files and a complete dataset preparation
-recipe are not included; the examples alone cannot run the default pipeline.
-Each rollout JSONL line is a state and its generated response, not a full episode.
-Training manifests and teacher caches are generated automatically.
+Split formats are documented in [DATA_FORMAT.md](docs/DATA_FORMAT.md). Actual
+split files and a complete split-generation procedure are not included.
 
 ## Training and evaluation
 
-Before running, make sure all four expert model directories exist, the external
-agent environments are installed, all four dataset split files have been created,
-and the Search retrieval service and WebShop search index have been configured.
-The GPU IDs in `configs/experiment.json` must refer to four available physical GPUs;
-the provided default IDs may not match your machine.
-
-After configuring dependencies, model paths, datasets, splits, GPUs, and ports:
+Once models, environments, data, and indexes are prepared, run from the repository root:
 
 ```bash
 bash scripts/services/start_retriever.sh
 bash scripts/run_all.sh
 ```
 
-To continue an interrupted run with its existing outputs:
+Resume:
 
 ```bash
 bash scripts/run_all.sh --resume
 ```
 
-WebShop is the initial expert. Each subsequent merging stage generates student
-trajectories, filters states, caches the appropriate teacher distributions, trains
-the gates, exports a dense model, and evaluates the capabilities learned so far.
-
-Merged weights are written to `BACAM_MERGE_ROOT` (`outputs/models` by default).
-Generated training data and teacher caches are under `data/`; evaluation results
-and plots are under `artifacts/`; execution logs are under `logs/`.
-Capability checks use 90% of each expert's reference score in `configs/expert_references.json`.
+The default sequence is WebShop, Tool, Search, ALFWorld. Merged weights are saved
+under `outputs/models/`, evaluation results under `artifacts/eval/`, and logs under
+`logs/`.
 
 ## Code layout
 
@@ -253,21 +211,6 @@ BACAM/
 ├── pyproject.toml           Python package metadata
 └── requirements.txt         Core dependencies
 ```
-
-The main algorithm files are `bacam/merging/gate_ops.py`, `bacam/merging/loss.py`, and `bacam/merging/train.py`.
-`bacam/data/cache_teacher.py` prepares teacher distributions and behavior masks;
-`bacam/data/build_states.py` builds training and budget-probe inputs. The full workflow
-starts at `scripts/run_all.sh`. See [PATHS.md](docs/PATHS.md) for resource settings.
-
-Standalone Python entry points use module execution, for example
-`python -m bacam.analysis.plot_capability_trends`. Shell launchers expose the
-checkout to all configured agent interpreters through `PYTHONPATH`; they do not
-require installing the training dependencies into each agent environment.
-
-Model weights, datasets, generated trajectories, caches, checkpoints, and execution
-logs are not bundled. The core pipeline has been checked with a small CPU model;
-full agent rollouts and multi-GPU training have not been validated from a fresh
-installation.
 
 ## Acknowledgements
 
