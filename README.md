@@ -86,13 +86,9 @@ shading indicates performance relative to the corresponding expert. A dash marks
 a task whose expert has not yet been integrated. Order affects acquisition and
 retention: final average success rates range from 56.02% to 62.82%.
 
-[Stage-wise scores and tensor diagnostics](docs/RESULTS.md#performance-across-merging-stages)
-· [Vector figure (PDF)](assets/figures/merging_stages.pdf)
-
 ## Installation
 
-Use Linux with an NVIDIA GPU, a compatible driver, and a CUDA-enabled PyTorch
-installation. The training pipeline uses four GPUs, FSDP, BF16, and FlashAttention.
+The training pipeline uses four GPUs, FSDP, BF16, and FlashAttention.
 The core Python dependencies are pinned in `requirements.txt`.
 Clone the repository and install the core dependencies below. Install the agent
 environments from their respective repositories. After cloning, run subsequent
