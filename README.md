@@ -2,8 +2,6 @@
 
 Official implementation of **BACAM: Behavior-Aware Continual Agent Merging for Multi-Turn Interaction**.
 
-[Method](#method) · [Results](#results) · [Installation](#installation) · [Training and evaluation](#training-and-evaluation)
-
 BACAM sequentially merges specialized language-model agents into a single dense
 model, acquiring each incoming capability while preserving previously integrated
 behaviors. It learns parameter-wise interpolation gates on the merged candidate's
@@ -19,6 +17,19 @@ points**.
 The repository includes merging, agent rollouts, teacher caching, evaluation, and
 gate/budget analysis. See [experiment results](docs/RESULTS.md) for the paper's
 comparison tables, ablations, and stage-wise scores.
+
+## Contents
+
+- [Method](#method)
+- [Results](#results)
+- [Installation](#installation)
+- [Expert models](#expert-models)
+- [External repositories](#external-repositories)
+- [Data preparation](#data-preparation)
+- [Training and evaluation](#training-and-evaluation)
+- [Code layout](#code-layout)
+- [Acknowledgements](#acknowledgements)
+- [License](#license)
 
 ## Method
 
