@@ -141,18 +141,8 @@ hf download langfeng01/GiGPO-Qwen2.5-7B-Instruct-ALFWorld \
 Use a separate environment for each agent, installed following its original repository.
 Do not install all agent dependencies into the core training environment.
 
-| Component | Interpreter / command setting |
-| --- | --- |
-| Core training and teacher caching | `BACAM_PYTHON`, `BACAM_TORCHRUN` |
-| Tool | `BACAM_TOOL_PYTHON`, `BACAM_BFCL` |
-| Search evaluation and retrieval | `BACAM_SEARCH_PYTHON` |
-| Search model serving | `BACAM_SGLANG_PYTHON` |
-| ALFWorld environment | `BACAM_ALFWORLD_PYTHON` |
-| WebShop environment | `BACAM_WEBSHOP_PYTHON` |
-| ALFWorld / WebShop model serving | `BACAM_VLLM` |
-
-Create `configs/paths.env` from `configs/paths.env.example` and set the executable
-paths for your environments; see [PATHS.md](docs/PATHS.md).
+Create `configs/paths.env` from [configs/paths.env.example](configs/paths.env.example)
+and edit it for your installation; see [PATHS.md](docs/PATHS.md).
 Load this file in the same shell before running BACAM commands:
 
 ```bash
