@@ -14,10 +14,6 @@ ALFWorld**. In the default order (WTSA), BACAM achieves **62.82% average success
 rate**, exceeding the strongest evaluated merging baseline by **21.69 percentage
 points**.
 
-The repository includes merging, agent rollouts, teacher caching, evaluation, and
-gate/budget analysis. See [experiment results](docs/RESULTS.md) for the paper's
-comparison tables, ablations, and stage-wise scores.
-
 ## Contents
 
 - [Method](#method)
