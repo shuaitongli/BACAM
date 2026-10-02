@@ -1,16 +1,8 @@
 # Local path configuration
 
-An environment variable is a setting exported in your shell, such as
-`export BACAM_MODEL_ROOT="models"`. `source configs/paths.env` loads these settings
-into the current shell. The repository root is the BACAM directory containing
-`README.md`. A service port identifies a local server used by agent requests;
-two independent services cannot listen on the same address and port.
-
-`bacam/paths.py` defines shared defaults for Python and shell entry points.
-Shell scripts load these values through `scripts/lib/paths.sh`. No original server
-directories or Conda environment names are required by BACAM's own scripts.
-The shared loader also adds the checkout to `PYTHONPATH`, so agent environments
-can run `bacam` modules without installing the core training dependencies.
+BACAM uses the following default resource locations. Set `BACAM_*` variables in
+`configs/paths.env` to use your own directories and agent environments.
+`<BACAM>` denotes the repository root.
 
 | Variable | Default |
 | --- | --- |
@@ -24,8 +16,8 @@ can run `bacam` modules without installing the core training dependencies.
 
 Model directory names under `BACAM_MODEL_ROOT` remain those listed in
 `configs/experiment.json`. Dataset directories are `alfworld`, `webshop`, and
-`flashrag_eval` under `BACAM_DATA_ROOT`. Frozen split inputs and generated states
-still live under `<BACAM>/data`; logs and diagnostic artifacts stay under
+`flashrag_eval` under `BACAM_DATA_ROOT`. Split files and generated states are saved
+under `<BACAM>/data`; logs and diagnostic artifacts are saved under
 `<BACAM>/logs` and `<BACAM>/artifacts`.
 
 ## Set paths
@@ -36,10 +28,9 @@ From the repository root:
 cp configs/paths.env.example configs/paths.env
 # Edit configs/paths.env to match your installation.
 source configs/paths.env
-python -m bacam.paths
 ```
 
-The local `paths.env` file is ignored by Git. Source it in the same shell before
+Source `configs/paths.env` in the same shell before
 running a pipeline or a standalone Python evaluator; it is not loaded implicitly.
 Existing exported `BACAM_*` values override defaults. Relative directory paths
 resolve against the BACAM checkout, regardless of the working directory.
@@ -59,10 +50,6 @@ commands on PATH. If environments differ, set both the Python and command paths
 explicitly, for example the training Python together with its `torchrun`, and the
 Tool Python together with its `bfcl`. Values must be a command name or a single
 executable path, not a shell command with arguments.
-
-The experiment configuration uses `${BACAM_MODEL_ROOT}` and
-`${BACAM_MERGE_ROOT}` placeholders. Stage resolution and result collection expand
-them through `load_experiment`. A plain JSON reader sees the unexpanded template.
 
 ## GPUs and ports
 

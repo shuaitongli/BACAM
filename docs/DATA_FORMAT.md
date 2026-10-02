@@ -16,7 +16,7 @@ their metadata.
 
 ## 1. Dataset splits
 
-The generator writes the following files under `data/splits/`. The state builder currently
+The generator writes the following files under `data/splits/`. The state builder
 reads all four split files, including when building an early merging stage.
 Training and held-out IDs must be disjoint and must refer to your installed data.
 
@@ -35,7 +35,7 @@ Training and held-out IDs must be disjoint and must refer to your installed data
 
 ### `bfcl_split.json`
 
-Only `multi_turn_base` is used. Replace the example IDs with BFCL case IDs.
+Only `multi_turn_base` is used. The generator fills in the BFCL case IDs.
 
 ```json
 {
@@ -91,8 +91,8 @@ checks `asin`, `category`, and `instruction` against the loaded environment.
 }
 ```
 
-The current evaluator uses goals 0–499 as held-out data. The range above follows
-the existing pipeline's training boundary; the goal contents are fictional.
+The evaluator reserves goals 0–499 for evaluation; training goals start at 500.
+The goal contents above are fictional.
 
 ## 2. Rollout states
 
@@ -132,8 +132,7 @@ Illustrative states for the other domains:
 
 Prompts here are placeholders for readability. Real records must contain the exact
 model input, not these descriptions. Environment feedback belongs in the next
-state's prompt. Rollout scripts also write summary metadata for completion/resume;
-do not invent completion summaries for these example rows.
+state's prompt. Rollout scripts generate completion metadata used when resuming.
 
 ## 3. Generated training inputs
 

@@ -147,8 +147,13 @@ Do not install all agent dependencies into the core training environment.
 | WebShop environment | `BACAM_WEBSHOP_PYTHON` |
 | ALFWorld / WebShop model serving | `BACAM_VLLM` |
 
-Point these settings to the corresponding environments in `configs/paths.env`;
-see [PATHS.md](docs/PATHS.md). Unset interpreter settings use the current Python.
+Create `configs/paths.env` from `configs/paths.env.example` and set the executable
+paths for your environments; see [PATHS.md](docs/PATHS.md).
+Load this file in the same shell before running BACAM commands:
+
+```bash
+source configs/paths.env
+```
 
 Place the checkouts at `third_party/ReSearch`,
 `third_party/bfcl-toolrl`, and `third_party/verl-agent`, or override their locations
@@ -162,9 +167,9 @@ tar -xzf bfcl_eval-2025.7.17.tar.gz --strip-components=1 -C third_party/bfcl-too
 python -m pip install -e './third_party/bfcl-toolrl[oss_eval_vllm]'
 ```
 
-BACAM includes the required Search and Tool adaptations under `integrations/`.
-After installing the external repositories, apply them once from the BACAM root
-in the core environment:
+BACAM's Search and Tool interfaces are included under `integrations/`.
+After installing the external repositories, install these interfaces from the
+BACAM root in the core environment:
 
 ```bash
 bash scripts/install_adapters.sh
@@ -172,12 +177,12 @@ bash scripts/install_adapters.sh
 
 ## Data preparation
 
-Prepare the following datasets and four split files under `data/splits/`:
+Prepare the following datasets, then generate the four split files under `data/splits/`:
 
 | Agent | Dataset used | Download/source |
 | --- | --- | --- |
 | Search | MuSiQue development questions in FlashRAG format | [FlashRAG datasets](https://huggingface.co/datasets/RUC-NLPIR/FlashRAG_datasets); ReSearch also provides `data/download_dataset.sh` |
-| Tool | BFCL `multi_turn_base` cases, tool definitions, and reference answers | [BFCL data directory](https://github.com/ShishirPatil/gorilla/tree/main/berkeley-function-call-leaderboard/bfcl_eval/data) in the original repository |
+| Tool | BFCL `multi_turn_base` cases, tool definitions, and reference answers | Included under `bfcl_eval/data/` in the BFCL source distribution specified above |
 | ALFWorld | TextWorld household game files: training games, `valid_seen`, and `valid_unseen` | [ALFWorld download instructions](https://github.com/alfworld/alfworld#quickstart), using `alfworld-download` |
 | WebShop | The 1,000-product subset and its shopping instructions | [WebShop setup instructions](https://github.com/princeton-nlp/WebShop#-setup), using the small dataset option |
 
@@ -199,20 +204,21 @@ python -m bacam.data.generate_splits --domain alfworld
 python -m bacam.data.generate_splits --domain webshop
 ```
 
-Generated files stay under `data/splits/` and are not committed. The original
-experiment's selected IDs are not distributed; results may vary with locally
-generated splits. See [DATA_FORMAT.md](docs/DATA_FORMAT.md) for the input format.
+Split files are generated locally under `data/splits/`. The paper's selected IDs
+are not distributed; results may vary with locally generated splits.
+See [DATA_FORMAT.md](docs/DATA_FORMAT.md) for the input format.
 
 ## Training and evaluation
 
 Once models, environments, data, and indexes are prepared, run from the repository root:
 
 ```bash
+conda activate bacam
 bash scripts/services/start_retriever.sh
 bash scripts/run_all.sh
 ```
 
-Resume:
+To continue an interrupted run:
 
 ```bash
 bash scripts/run_all.sh --resume
@@ -240,7 +246,7 @@ BACAM/
 │   ├── pipelines/           Per-stage merge pipelines
 │   ├── rollout/             Agent rollout launchers
 │   ├── evaluate/            Evaluation launchers
-│   ├── services/            Retrieval service
+│   ├── services/            Retrieval and model serving
 │   └── lib/                 Shared Shell helpers
 ├── configs/
 │   ├── experiment.json      Merging, GPU and port settings
